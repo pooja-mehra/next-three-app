@@ -604,7 +604,7 @@ export default function NewCanvas(props:any) {
           onMouseOver={(e)=>{
             editContent.current.focus()
         }}
-          onKeyDown={(e)=>{
+          onKeyDown={(e:any)=>{
           if(e.ctrlKey && e.code == 'KeyS'){
             e.target.innerText != '' && setTextArray([...textArray, {text:e.target.innerText, opacity:1, left:0, top:0}])
             divRef.current.remove()
@@ -659,7 +659,7 @@ export default function NewCanvas(props:any) {
                 } }>
                 <ClearIcon fontSize="inherit"/></button>
               <p contentEditable suppressContentEditableWarning={true} style={{width:'max-content', whiteSpace:'pre-wrap', lineHeight:'20px'}}
-              onKeyDown={(e)=>{ 
+              onKeyDown={(e:any)=>{ 
                 if(e.code == 'KeyS' && e.ctrlKey){
                   if(e.target.innerText == ''){
                     setTextArray(textArray.filter((t:any, index:number)=> index != i))
@@ -675,7 +675,7 @@ export default function NewCanvas(props:any) {
                   }
                 }
               }}
-                onPointerUp = {(e)=>{
+                onPointerUp = {(e:any)=>{
                   setTextArray(textArray.map((t:any,index:number)=> {
                     if (index == i) {
                       let result = (e.target.offsetParent.attributes.style.value.match(/\d+/g)).map((n:any) => parseInt(n));
