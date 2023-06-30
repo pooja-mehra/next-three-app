@@ -1,0 +1,39 @@
+.container{
+    color: rgb(85, 85, 85);
+    text-align: center;
+    font-family: sans-serif;
+}
+.giphy-search-results-grid{
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
+img {
+    width: 100%;
+}
+
+.logo-container{
+    max-width: 500px;
+    margin: auto;
+    padding: 40px 0px
+}
+
+#box {
+    position: absolute;
+    background: #7c1717;
+    color: #eee;
+    height: 100%;
+    width: 100%;
+    cursor: move;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Amatic SC";
+    text-shadow: 2px 2px 3px #38e;
+  }
+  
+  ::-webkit-scrollbar {
+    width: 0px;
+    background: transparent; /* make scrollbar transparent */
+    }   
