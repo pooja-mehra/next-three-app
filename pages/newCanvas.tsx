@@ -52,6 +52,8 @@ import PreviewBox from '@/shared/previewBox'
 import Draggable from "react-draggable";
 import ClearIcon from '@mui/icons-material/Clear';
 import * as THREE from 'three';
+import ColorPallet from '@/shared/colorpallet';
+
 const AnimatedMeshDistortMaterial = animated(MeshDistortMaterial)
 
 export default function NewCanvas(props:any) {
@@ -59,7 +61,7 @@ export default function NewCanvas(props:any) {
   const divRef = useRef<any>(null);
   const canvasRef = useRef<any>(null);
   const [editableDiv, isEditableDiv] = useState(false)
-  const [textArray, setTextArray] = useState([{}])
+  const [textArray, setTextArray] = useState(new Array())
   const [deletedIndex,setDeletedIndex] = useState(-1)
   //const [newElements, addNewElement] = useState(new Array())
   //const [elements, addElement] = useState(new Array())
@@ -75,7 +77,12 @@ export default function NewCanvas(props:any) {
   const [open, setOpen] = useState(true);
   const newElements = useMemo(() => new Array(),[])
   const elements = useMemo(() => new Array(),[])
+  const [newcolor,setNewColor] = useState('')
 
+  const setColor = (color:string, index:number) =>{
+    setNewColor(color)
+    elements[index].color = color
+  }
   const StaticMesh = (props:any) =>{
     const [hovered,isHovered] = useState(false)
     const ref = useRef<any>()
@@ -91,7 +98,7 @@ export default function NewCanvas(props:any) {
       rotation={[0, 0, 0]}
       position={[0, 0, 0]}
       onClick={(e: any) => {
-        cloneElement(e,Object.values(geometry[props.i].parameters))
+        cloneElement(e,Object.values(geometry[props.i].parameters), props.element.color)
       }}
       onPointerOver={(e) =>{
         isHovered(true)
@@ -200,13 +207,17 @@ export default function NewCanvas(props:any) {
     }
     mergeElements(event)
   }
+  const rgbToHex = (r:number, g:number, b:number) => '#' + [r, g, b].map(x => {
+    const hex = x.toString(16)
+    return hex.length === 1 ? '0' + hex : hex
+  }).join('')
 
-  const cloneElement = (e: any, args:any) => {
+  const cloneElement = (e: any, args:any, color:string) => {
     isClicked(!clicked)
     newElements.push({
       name: e.eventObject.geometry.type,
       args: args,
-      color: e.eventObject.material.color,
+      color:color,
       id: e.eventObject.id,
       intersections: {
         isintersect: false,
@@ -240,7 +251,8 @@ export default function NewCanvas(props:any) {
       args: args,
       boundaries: { top: 0, bottom: 0, right: 0, left: 0 },
       position: new Vector3(0, 0, 0),
-      rotation: [0.5, 0.5, 0]
+      rotation: [0.5, 0.5, 0],
+      color:color
     }
   }
 
@@ -634,7 +646,6 @@ export default function NewCanvas(props:any) {
     return(
     textArray 
     .map((t:any,i)=> 
-           i != 0 &&
            <Html  key ={i}>
            <Draggable>
             <div id ={'text'+i} style={{top:t.top, left:t.left}} 
@@ -744,7 +755,6 @@ export default function NewCanvas(props:any) {
         }}
         id="left">
         <Stack spacing={0} style={{ marginLeft: '10%', marginRight: '10%' }}>
-          
         </Stack>
       </div>
       <div style={{ position: 'relative' }}>
@@ -755,7 +765,7 @@ export default function NewCanvas(props:any) {
             height: '600px',
             backgroundColor: 'lightblue'
           }}
-          camera={{ position: [0, 0, 2] }}
+          
           onContextMenu={(e)=>{
             e.nativeEvent.preventDefault()
             isEditableDiv(false)
@@ -1010,7 +1020,7 @@ export default function NewCanvas(props:any) {
               }
             })}
           {editableDiv && EditableText() }
-          { textArray && textArray.length > 1  && text()}
+          { textArray && textArray.length > 0  && text()}
         </Canvas>
         <Menu 
         open={ textMenu !== null }
@@ -1061,7 +1071,7 @@ export default function NewCanvas(props:any) {
                 z: 0,
                 isRotate: true,
                 isRotateZ: false,
-                index: contextMenu?.index ? contextMenu?.index : -1
+                index: contextMenu? contextMenu.index : 0
               })
               handleClose()
             }}>
@@ -1075,7 +1085,7 @@ export default function NewCanvas(props:any) {
                 z: 0,
                 isRotate: false,
                 isRotateZ: true,
-                index: contextMenu?.index ? contextMenu?.index : -1
+                index: contextMenu?  contextMenu.index : 0
               })
               handleClose()
             }}>
@@ -1083,16 +1093,18 @@ export default function NewCanvas(props:any) {
             </MenuItem>
           <MenuItem
             onClick={() => {
-              contextMenu?.index &&
-                setSize({...resize, args: elements[contextMenu?.index].args,
-                  index: contextMenu?.index,
+              contextMenu &&
+                setSize({...resize, args: elements[contextMenu.index].args,
+                  index:  contextMenu ? contextMenu.index : 0,
                   isResize: true})
               handleClose()
             }}>
             ReSize
           </MenuItem>
+          <MenuItem><ColorPallet elements={elements} index ={contextMenu ? contextMenu.index : 0} setColor={setColor}/></MenuItem>
         </Menu>
       </div>
     </div>
   )
+  
 }
