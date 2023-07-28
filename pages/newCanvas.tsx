@@ -1,16 +1,17 @@
-import { useState, useRef, useEffect, useMemo, Suspense, useLayoutEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useMemo, Suspense, useLayoutEffect, useCallback, ReactElement } from 'react'
 import { animated } from '@react-spring/three'
-import { Canvas, useThree, useFrame, MeshProps } from '@react-three/fiber'
+import { Canvas, useThree, useFrame, MeshProps} from '@react-three/fiber'
 import {
   Text,
   MeshTransmissionMaterial,
   MeshDistortMaterial,
-  Html
+  Html,
+  Stats,
+  OrbitControls
 } from '@react-three/drei'
 import Box from '@mui/material/Box'
 import { IconButton, Typography } from '@mui/material'
 import Stack from '@mui/material/Stack'
-import { OrbitControls } from '@react-three/drei'
 import {
   BoxGeometry,
   BufferGeometry,
@@ -24,12 +25,11 @@ import {
   AmbientLight,
   DirectionalLight,
   PointLight,
-  BackSide
+  BackSide,
 } from 'three'
 import { useDrag } from 'react-use-gesture'
-import StaticElements from '../shared/staticelements'
 import { Physics } from '@react-three/cannon'
-import { faEllipsisV } from '@fortawesome/free-solid-svg-icons/faEllipsisV'
+import { faEllipsisV, height } from '@fortawesome/free-solid-svg-icons/faEllipsisV'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import NavigationIcon from '@mui/icons-material/Navigation'
 import Fab from '@mui/material/Fab'
@@ -53,8 +53,18 @@ import Draggable from "react-draggable";
 import ClearIcon from '@mui/icons-material/Clear';
 import * as THREE from 'three';
 import ColorPallet from '@/shared/colorpallet';
-
-const AnimatedMeshDistortMaterial = animated(MeshDistortMaterial)
+import TextBox from '@/shared/textbox';
+import Font from '@/shared/font'
+import Geometries from '@/shared/geometries'
+import CommonMenu from '@/shared/commonMenu'
+import LeftPane from '@/shared/leftpane'
+import DetailsIcon from '@mui/icons-material/Details';
+import { Transform } from 'stream'
+import { setInterval } from 'timers'
+import Preview from '@/shared/preview'
+import { ScreenCapture } from 'react-screen-capture';
+import Image from 'next/image'
+const AnimatedMeshDistortMaterial:any = animated(MeshDistortMaterial)
 
 export default function NewCanvas(props:any) {
   const editContent = useRef<any>(null);
@@ -62,12 +72,9 @@ export default function NewCanvas(props:any) {
   const canvasRef = useRef<any>(null);
   const [editableDiv, isEditableDiv] = useState(false)
   const [textArray, setTextArray] = useState(new Array())
-  const [deletedIndex,setDeletedIndex] = useState(-1)
-  //const [newElements, addNewElement] = useState(new Array())
   //const [elements, addElement] = useState(new Array())
   const [clicked, isClicked] = useState(false)
   const [dragging, isdragging] = useState(false)
-  const [staticElements, setStaticElements] = useState(StaticElements.elements)
   const [join, showJoin] = useState(false)
   const [pointerPosition, setPointerPosition] = useState([0, 0, 0])
   const [lastPosition, setLastPosition] = useState([-10, -10])
@@ -75,44 +82,136 @@ export default function NewCanvas(props:any) {
   const [draggedElement, setDraggedElement] = useState('element')
   const [intersectingIndex, setIntersectingIndex] = useState([-1])
   const [open, setOpen] = useState(true);
-  const newElements = useMemo(() => new Array(),[])
   const elements = useMemo(() => new Array(),[])
-  const [newcolor,setNewColor] = useState('')
-
-  const setColor = (color:string, index:number) =>{
-    setNewColor(color)
-    elements[index].color = color
+  const [newcolor,setNewColor] = useState('#ff6d6d')
+  const [font, setFontStyle] = useState({style:'serif', size:'15px'})
+  const [selected,setSelected] = useState<any>()
+  const [wireframe,isWireFrame] = useState(false)
+  const [autoRotate,isAutoRotate] = useState(false)
+  const canvas = useMemo(()=> [{color:'white'}],[])
+  const gl = THREE.WebGLRenderer
+  /*const color = useControls({
+    value: 'lightblue',
+  })*/
+  const [canvasURL,setCanvasURL] = useState('')
+  const setEditableDiv = () =>{
+    isEditableDiv(true)
   }
+
+  const setColor = (color:string, index:number, element:any, name:string) =>{
+    setNewColor(color)
+    switch(name){
+      case 'text':
+        return  (setTextArray(textArray.map((t,i)=>{
+          if(i == index){
+            return {...t, color:color}
+          } else{
+            return t
+          }
+        })))
+      case 'element':
+        return element[index].color = color
+      default:
+        return canvas[0].color = color
+    }
+  }
+
+  const setFont = (fontFamily:string, index:number, elements:any) =>{
+    setFontStyle({...font,style:fontFamily})
+    textArray[index].fontFamily = fontFamily
+  }
+
+  const setFontSize = (size:string, index:number, elements:any) =>{
+    setFontStyle({...font,size:size})
+    textArray[index].fontSize = size
+  }
+
+  const setWireFrame = (element:any,index:number) =>{
+    isWireFrame(!element[index].wireframe)
+    element[index].wireframe = !element[index].wireframe
+
+  }
+
+  const [interval,addInterval] = useState()
+
+  const setAutoRotate = (element:any,index:number) =>{
+    isAutoRotate(!element[index].autoRotate)
+    element[index].autoRotate = !element[index].autoRotate
+    //if(!autoRotate){
+    const interval = setInterval(() => {
+        console.log('inside interval');
+    }, 500);
+    setTimeout(() =>{
+      console.log('stop interval');
+      clearInterval(interval), 5000})
+    }
+
+  const rotate = (element:any,index:number) =>{
+    setRotation({
+      x: element[index].intersections.rotation[0] += 0.5,
+      y: element[index].intersections.rotation[1] += 0.5,
+      z: element[index].intersections.rotation[1] += 0.5,
+      isRotate:true,
+      isRotateZ: false,
+      index: index
+    })
+  }
+
+  const setElementSize = (size:number, name:number, element:any,index:number) =>{
+    if([0,1,2].includes(name)){
+      let args = []
+      element[index].args[name] = size
+      name == 0? args.push(size,element[index].args[1],element[index].args[2]): name == 1 ? args.push(element[index].args[0],size,element[index].args[2]) : args.push(element[index].args[0],element[index].args[1],size)
+      setSize({args:args, index:index, isResize: true, sizeTool:'slider' })
+    } else{
+      let rotaionArgs = []
+      element[index].intersections.rotation[name] = size
+      name == 3? rotaionArgs.push(size,element[index].intersections.rotation[1],element[index].intersections.rotation[2]): 
+      name == 4 ? rotaionArgs.push(element[index].intersections.rotation[0],size,element[index].intersections.rotation[2]) : 
+      rotaionArgs.push(element[index].intersections.rotation[0],element[index].intersections.rotation[1],size)
+      setRotation({
+        x: rotaionArgs[0],
+        y: rotaionArgs[1],
+        z: rotaionArgs[2],
+        isRotate:true,
+        isRotateZ: false,
+        index: index
+      })
+    }
+    
+  }
+
+  const geometry = Geometries('#ff6d6d')
+  //const geometry = useMemo(() => geometries,[geometries])
+
   const StaticMesh = (props:any) =>{
-    const [hovered,isHovered] = useState(false)
     const ref = useRef<any>()
     useFrame((_,delta) => {
-    !hovered && (ref.current.rotation.x += 0.2 * delta,
-    ref.current.rotation.y += 0.2 * delta)
+    ref.current.rotation.x += 0.2 * delta
+    ref.current.rotation.y += 0.2 * delta
     })
-   
-    const geometry = useMemo(() => [new THREE.BoxGeometry(0.6,0.6,0.6), new THREE.CylinderGeometry(0.4, 0.4, 0.6),
-    new THREE.SphereGeometry(0.4, 32, 32)],[])
     return (<mesh ref={ref}
       scale={[2, 2, 2]}
       rotation={[0, 0, 0]}
       position={[0, 0, 0]}
-      onClick={(e: any) => {
-        cloneElement(e,Object.values(geometry[props.i].parameters), props.element.color)
-      }}
-      onPointerOver={(e) =>{
-        isHovered(true)
-        }
-      }
-      onPointerOut={(e) =>{
-        isHovered(false)
-      }}
-      geometry={geometry[props.i]} >
+      geometry={geometry[props.i].type} >
       <meshStandardMaterial
-        color={props.element.color}
-        wireframe={hovered?false:true}
+        color={geometry[props.i].color}
+        wireframe={true}
       />
     </mesh>)
+  }
+  
+  const MainMesh = (props:any) =>{
+    const {e,i} = props
+    const ref = useRef<any>()
+    useFrame((_, delta) => {
+      if (autoRotate) {
+        ref.current.rotation.x += 1 * delta
+        ref.current.rotation.y += 1 * delta
+      }
+    })
+    
   }
  
   const handleClick = () => {
@@ -130,11 +229,7 @@ export default function NewCanvas(props:any) {
     mouseY: number
     contextEvent: any
   } | null>(null)
-  const [wireframe, setWireFrame] = useState({
-    staticElements: -1,
-    newElements: -1,
-    elements: [-1]
-  })
+  
   const [rotation, setRotation] = useState({
     x: 0.5,
     y: 0.5,
@@ -146,7 +241,8 @@ export default function NewCanvas(props:any) {
   const [resize, setSize] = useState({
     args: [0, 0, 0],
     index: -1,
-    isResize: false
+    isResize: false,
+    sizeTool:'cursor'
   })
   const handleContextMenu = (event: any, i : number) => {
     setTextMenu(null)
@@ -212,48 +308,35 @@ export default function NewCanvas(props:any) {
     return hex.length === 1 ? '0' + hex : hex
   }).join('')
 
-  const cloneElement = (e: any, args:any, color:string) => {
+  const cloneElement = (args:any, color:string, id:number, name:string) => {
     isClicked(!clicked)
-    newElements.push({
-      name: e.eventObject.geometry.type,
+    elements.push({
+      name: name,
       args: args,
       color:color,
-      id: e.eventObject.id,
+      id: id,
+      wireframe:false,
+      autoRotate:false,
       intersections: {
         isintersect: false,
         intersectionName: '',
-        name: e.eventObject.geometry.type,
+        name: name,
         args: args,
         boundaries: { top: 0, bottom: 0, right: 0, left: 0 },
-        position: new Vector3(0, 0, 0),
+        position: new Vector3(0, 3, 0),
         rotation: [0.5, 0.5, 0]
       }
     })
-    /*addNewElement([...newElements,{
-      name: e.eventObject.geometry.type,
-      args: args,
-      color: e.eventObject.material.color,
-      id: e.eventObject.id,
-      intersections: {
-        isintersect: false,
-        intersectionName: '',
-        name: e.eventObject.geometry.type,
-        args: args,
-        boundaries: { top: 0, bottom: 0, right: 0, left: 0 },
-        position: new Vector3(0, 0, 0),
-        rotation: [0.5, 0.5, 0]
-      }
-    }])*/
-    e.eventObject.userData = {
+    /*e.eventObject.userData = {
       isintersect: false,
       intersectionName: '',
-      name: e.eventObject.geometry.type,
+      name: name,
       args: args,
       boundaries: { top: 0, bottom: 0, right: 0, left: 0 },
-      position: new Vector3(0, 0, 0),
+      position: new Vector3(0, 3, 0),
       rotation: [0.5, 0.5, 0],
       color:color
-    }
+    }*/
   }
 
   const detachElement = (
@@ -303,9 +386,13 @@ export default function NewCanvas(props:any) {
     }
     handleClose()
   }
-
-  const editProperties = (e: any, element: any, i: any) => {}
-
+  const [anchorEl, setAnchorEl] = useState(null);
+  const anchorClose = () => {
+    setAnchorEl(null);
+    isAnchor(false)
+  };
+  const [anchor,isAnchor] = useState(false)
+  
   const mergeElements = (e: any) => {
     intersectingIndex.shift()
     if (intersectingIndex.length > 1) {
@@ -434,8 +521,7 @@ export default function NewCanvas(props:any) {
   }
 
   const getBoundaries = (event: any, index: number, isNew: boolean) => {
-    let elementsArray = isNew ? newElements : elements
-    switch (elementsArray[index].name) {
+    switch (elements[index].name) {
       case 'BoxGeometry':
         return {
           top:
@@ -493,20 +579,20 @@ export default function NewCanvas(props:any) {
     }
     rotation.isRotateZ
       ? setRotation({
-          x: 0,
-          y: 0,
+          x: rotation.x,
+          y: rotation.y,
           z: rotation.z,
           isRotate: false,
           isRotateZ: true,
-          index: index ? index : -1
+          index: index ? index : 0
         })
       : setRotation({
           x: rotation.x,
           y: rotation.y,
-          z: 0,
+          z: rotation.z,
           isRotate: true,
           isRotateZ: false,
-          index: index ? index : -1
+          index: index ? index : 0
         })
   }
 
@@ -519,11 +605,6 @@ export default function NewCanvas(props:any) {
       elements.filter((e: any, i: number) => {
         if (elementsName.includes(e.name + e.id)) {
           indexes.push(i)
-          setWireFrame({
-            staticElements: -1,
-            newElements: -1,
-            elements: indexes
-          })
         }
       })
     } else {
@@ -560,7 +641,7 @@ export default function NewCanvas(props:any) {
             : resize.args[1],
           resize.args[2]
         ]
-        setSize({args: boxArgs, index: index, isResize: true })
+        setSize({args: boxArgs, index: index, isResize: true, sizeTool:'cursor' })
         return
       case 'CylinderGeometry':
         let cylinderArgs = [
@@ -580,7 +661,7 @@ export default function NewCanvas(props:any) {
             ? resize.args[2] - 0.1
             : resize.args[2]
         ]
-        setSize({ args: cylinderArgs, index: index, isResize: true })
+        setSize({ args: cylinderArgs, index: index, isResize: true, sizeTool:'cursor'  })
         return
       case 'SphereGeometry':
         let sphereArgs = [
@@ -593,7 +674,7 @@ export default function NewCanvas(props:any) {
           resize.args[1],
           resize.args[2]
         ]
-        setSize({ args: sphereArgs, index: index, isResize: true })
+        setSize({ args: sphereArgs, index: index, isResize: true, sizeTool:'cursor'  })
         return
       default:
         return
@@ -610,7 +691,8 @@ export default function NewCanvas(props:any) {
           maxHeight: '100px',
           whiteSpace: 'nowrap',
           overflowY: 'scroll',
-          border: '1px solid black'}}
+          border: '1px solid black',
+          }}
           ref = {divRef}
           autoFocus
           onMouseOver={(e)=>{
@@ -618,18 +700,21 @@ export default function NewCanvas(props:any) {
         }}
           onKeyDown={(e:any)=>{
           if(e.ctrlKey && e.code == 'KeyS'){
-            e.target.innerText != '' && setTextArray([...textArray, {text:e.target.innerText, opacity:1, left:0, top:0}])
+            let translate = e.target.offsetParent.attributes.style.value.split('translate')
+            console.log(translate)
+            let position = translate && translate.length > 1 ?e.target.offsetParent.attributes.style.value.split('translate')[1].match(/\d+/g):[0,0]
+            isEditableDiv(false)
+            e.target.innerText != '' && setTextArray([...textArray, {text:e.target.innerText, opacity:1, left:position[0], top:position[1], color:'black',fontFamily:'serif',fontSize:'15px'}])
             divRef.current.remove()
           } 
-        }}
-        >
+        }}>
          <button contentEditable={false} style = {{position:'relative',float:'right', marginTop: '0px', width: '30px', height:'20px'}} onClick = {(e)=>{
           divRef.current.remove()
+          isEditableDiv(false)
         }}><ClearIcon fontSize="inherit"/></button>
         <div contentEditable ref= { editContent} 
           className='editText'
-          style={{marginTop:'20px', marginBottom:'-50px', height:'80px'}}
-       ></div>
+          style={{marginTop:'20px', marginBottom:'-50px', height:'80px', color:'black', fontFamily:'serif', fontSize:'15px'}}></div>
       </div>
       </Html>
     )
@@ -646,9 +731,9 @@ export default function NewCanvas(props:any) {
     return(
     textArray 
     .map((t:any,i)=> 
-           <Html  key ={i}>
+          <Html  key ={i} >
            <Draggable>
-            <div id ={'text'+i} style={{top:t.top, left:t.left}} 
+            <div id ={'text'+i} style={{left:t.left, top:t.top ,minWidth:'100px'}} 
               onPointerOver ={(e)=>{setTextArray(textArray.map((t:any,index:number)=> {
                 if (index == i) {
                   return {...t,opacity:1}
@@ -662,14 +747,22 @@ export default function NewCanvas(props:any) {
                 } else {
                   return t;
                 }
-              }))}}> 
-              <button contentEditable={false} style = {{position:'sticky',marginBottom: '0px', width: '30px', height:'20px', opacity:t.opacity}} 
+              }))}}>
+             
+              <div style={{opacity:t.opacity, zIndex:10}} >
+              <button contentEditable={false}  style = {{position:'relative',float:'right', marginTop: '0px',opacity:t.opacity, height:'27px'}}
               onClick = {(e)=>{ 
                 setTextArray(textArray.filter((t:any, index:number)=> index != i))
-                setDeletedIndex(deletedIndex+1)
-                } }>
+                setSelected({name:'canvas', index:-1, elements:null})
+              }}>
                 <ClearIcon fontSize="inherit"/></button>
-              <p contentEditable suppressContentEditableWarning={true} style={{width:'max-content', whiteSpace:'pre-wrap', lineHeight:'20px'}}
+                <button contentEditable={false}  style = {{position:'relative',marginTop: '0px',opacity:t.opacity, height:'27px'}}
+              onClick = {(e)=>{ 
+                setSelected({name:'text', index:i, elements:textArray})
+              }}>
+                <DetailsIcon fontSize="inherit"/></button>
+                </div>
+              <p contentEditable suppressContentEditableWarning={true} style={{width:'max-content', whiteSpace:'pre-wrap', lineHeight:'20px', color:t.color, fontFamily:t.fontFamily, fontSize:t.fontSize}}
               onKeyDown={(e:any)=>{ 
                 if(e.code == 'KeyS' && e.ctrlKey){
                   if(e.target.innerText == ''){
@@ -689,34 +782,36 @@ export default function NewCanvas(props:any) {
                 onPointerUp = {(e:any)=>{
                   setTextArray(textArray.map((t:any,index:number)=> {
                     if (index == i) {
-                      let result = (e.target.offsetParent.attributes.style.value.match(/\d+/g)).map((n:any) => parseInt(n));
-                      return {...t,left:result[2],top:result[3]}
+                      let result = (e.target.offsetParent.attributes.style.value.split('translate')[1].match(/\d+/g)).map((n:any) => parseInt(n));
+                      console.log(result)
+                      return {...t,left:result[0],top:result[1]}
                     } else {
                       return t;
                     }
                   }))
-                }} >{t.text}</p></div></Draggable></Html>
-            ));
+                 }} >{t.text}
+            </p></div></Draggable></Html>
+          ));
   }
-  
 
   return (
     <div style={{ height: props.height }}>
       <div
         style={{
-          marginLeft: '10%',
+          marginLeft:'10%',
+          marginRight:'10%',
           width: '80%',
-          height: '100px',
+          height: '80px',
           display: 'flex',
-          overflowX: 'auto'
+          overflowX: 'auto',
         }}
         id="properties">
-        {staticElements.map((element, i) => {
+        {geometry.map((element, i) => {
           return (
             <>
-              <div style={{ float: 'left', marginRight: '10px', width: '20%' }}>
+              <div style={{ float: 'left', width: '10%' }}>
                 <Canvas camera={{ position: [0, 0, 2] }}>
-                  <ambientLight intensity={1} />
+                  <ambientLight intensity={1} ></ambientLight>
                   <pointLight intensity={1} position={[1, 1, 1]} />
                   <Html>
                   <div
@@ -725,303 +820,229 @@ export default function NewCanvas(props:any) {
                   color: 'grey',
                   display: 'flex',
                   verticalAlign: 'middle',
-                  marginLeft:'40px',
+                  marginLeft:'20px',
                   marginTop:'-20px'
                 }}>
-                <IconButton
-                  aria-label="Example"
-                  onClick={(e) => editProperties(e, element, i)}>
-                  <FontAwesomeIcon icon={faEllipsisV} />
-                </IconButton>
-              
+                  <CommonMenu geometry={geometry} index={i} cloneElement={cloneElement} setColor={setColor}/>
                   </div>
                   </Html>
                   <StaticMesh element={element} i = {i}/>
+                  <Stats />
                 </Canvas>
               </div>
-             
             </>
           )
         })}
       </div>
+      
+      <div style={{ position: 'relative' }}>
       <div
         style={{
           width: '10%',
-          height: '600px',
+          height: '500px',
           float: 'left',
-          flex: 1,
-          textAlign: 'center',
-          overflowY: 'auto'
-        }}
-        id="left">
-        <Stack spacing={0} style={{ marginLeft: '10%', marginRight: '10%' }}>
-        </Stack>
+          overflow: 'auto',
+          margin:'1%',
+          backgroundColor:'yellow',
+          marginTop:'2%',
+        }}>
+      <LeftPane selected={selected} setColor={setColor} EditableText={EditableText} setEditableDiv={setEditableDiv} setFontSize={setFontSize} setFont={setFont} setWireFrame={setWireFrame}
+      setElementSize={setElementSize} setAutoRotate = {setAutoRotate}/>
       </div>
-      <div style={{ position: 'relative' }}>
+      <div style={{marginTop:'-2%'}}>
+      <div style={{float:'left', marginLeft:'-8%'}}>
+          Previous
+      </div>
+      <div style={{marginLeft:'76%'}}>
+          Next
+      </div>
+      </div>
         <Canvas
           ref={canvasRef}
           style={{
-            width: '80%',
-            height: '600px',
-            backgroundColor: 'lightblue'
+            width: '60%',
+            height: '500px',
+            float:'left',
+            marginTop:'1%',
           }}
-          
+          onClick={()=>{
+            let ref = canvasRef.current
+            console.log(ref.toDataURL())
+            setCanvasURL(ref.toDataURL())}}
           onContextMenu={(e)=>{
             e.nativeEvent.preventDefault()
             isEditableDiv(false)
             setLastPosition([e.clientX - 600,e.clientY - 500])
             contextMenu == null && handleTextMenu(e)
           }}>
-          <ambientLight intensity={1} />
-          <pointLight intensity={1} position={[1,1,1]} />
-          {newElements &&
-            newElements.length > 0 &&
-            newElements.map((e, i) => {
-              if (e.name != '') {
-                return (
-                  <>
-                    <mesh
-                      position={e.intersections.position}
-                      rotation={e.intersections.rotation}
-                      onPointerOver={(e) =>
-                        setWireFrame({
-                          staticElements: -1,
-                          newElements: i,
-                          elements: [-1]
-                        })
-                      }
-                      onPointerOut={(e) =>
-                        setWireFrame({
-                          staticElements: -1,
-                          newElements: -1,
-                          elements: [-1]
-                        })
-                      }
-                      onPointerMove={(event) => {
-                        document.body.style.cursor = 'crosshair'
-                        if (dragging) {
-                          event.intersections.filter((i: any, index: any) => {
-                            if (i.eventObject.name == draggedElement) {
-                              event.intersections[
-                                index
-                              ].eventObject.position.x = event.point.x
-                              event.intersections[
-                                index
-                              ].eventObject.position.y = event.point.y
-                            }
-                          })
-                        }
-                      }}
-                      onPointerDown={(event) => {
-                        if (event.eventObject.name == '') {
-                          event.eventObject.name = e.name + e.id
-                        }
-                        setDraggedElement(event.eventObject.name)
-                        isdragging(true)
-                      }}
-                      onPointerUp={(event) => {
-                        if (event.eventObject.name == draggedElement) {
-                          e.intersections.position.x =
-                            event.eventObject.position.x
-                          e.intersections.position.y =
-                            event.eventObject.position.y
-                        }
-                        e.id = event.eventObject.id.toString()
-                        event.eventObject.name = e.name + e.id
-                        event.eventObject.userData = e.intersections
-                        e.intersections.boundaries = getBoundaries(
-                          event,
-                          i,
-                          true
-                        )
-                        event.eventObject.userData.boundaries = e.intersections.boundaries
-                        elements.push(e)
-                        //addElement([...elements,e])
-                        newElements.splice(elements.indexOf(i),1)
-                        //addNewElement(newElements.filter((e,index)=> index != i))
-                        isdragging(false)
-                      }}>
-                      <e.name args={e.args} />
-                      <meshStandardMaterial
-                        color={e.color}
-                        wireframe={wireframe.newElements == i ? true : false}
-                      />
-                    </mesh>
-                  </>
-                )
+          <ambientLight intensity={1} ></ambientLight>
+          <pointLight intensity={2} position={[1,1,1]} />
+      {elements &&
+      elements.length > 0 &&
+      elements.map((e, i) => {
+      if (e.name != '') {
+      return (
+      <>
+      <mesh
+      position={e.intersections.position}
+      rotation={
+        i == rotation.index
+          ? [rotation.x, rotation.y, rotation.z]
+          : e.intersections.rotation
+        }
+
+      onContextMenu={(e) => {
+        e.nativeEvent.preventDefault()
+        handleContextMenu(e, i)
+      }}
+      onPointerMove={(event) => {
+        document.body.style.cursor = 'crosshair'
+        if (
+          dragging &&
+          (!rotation.isRotate || !rotation.isRotateZ) &&
+          rotation.index != i &&
+          !resize.isResize &&
+          resize.index != i
+        ) {
+          findIndex(event, i)
+        } else {
+          if (
+            (rotation.isRotate || rotation.isRotateZ) &&
+            rotation.index == i
+          ) {
+            setElementRotation(event, i)
+          }
+          if (resize.isResize && resize.index == i && resize.sizeTool == 'cursor') {
+            setElemetArgs(event, i)
+          }
+        }
+        setLastPosition([event.point.x, event.point.y])
+      }}
+      onPointerDown={(event) => {
+        if (
+          join == true &&
+          e.name + e.id == elements[i].name + elements[i].id &&
+          intersectingIndex[intersectingIndex.length - 1] != i
+        ) {
+          intersectingIndex.push(i)
+          mergeElements(e)
+        }
+        if (event.eventObject.name == '') {
+          event.eventObject.name = e.name + e.id
+        }
+        console.log(event.eventObject)
+        if (event.intersections[0].eventObject.name != '') {
+          setDraggedElement(event.eventObject.name)
+          setLastPosition([event.point.x, event.point.y])
+          isdragging(true)
+        }
+      }}
+      onPointerUp={(event) => {
+        console.log(event.eventObject)
+        if (i == rotation.index) {
+          e.intersections.rotation = [
+            rotation.x,
+            rotation.y,
+            rotation.z
+          ]
+        }
+        if (i == resize.index && resize.sizeTool == 'cursor') {
+          e.args = resize.args
+        }
+        setRotation({
+          x: rotation.x,
+          y: rotation.y,
+          z: rotation.x,
+          isRotate: false,
+          isRotateZ: false,
+          index: -1
+        })
+        setSize({ args: [], index: -1, isResize: false , sizeTool:'cursor' })
+        if (dragging) {
+          //findIndex(event)
+          let x = event.point.x
+          let y = event.point.y
+          if (event.eventObject.name == draggedElement) {
+            e.intersections.position.x =
+              event.eventObject.position.x
+            e.intersections.position.y =
+              event.eventObject.position.y
+          }
+          event.eventObject.name = e.name + e.id
+          event.eventObject.userData = e.intersections
+          e.intersections.boundaries = getBoundaries(
+            event,
+            i,
+            false
+          )
+          event.eventObject.userData.boundaries =
+            e.intersections.boundaries
+          if (elements && elements.length >= 2) {
+            elements.filter((ele, index) => {
+              if (ele.name + ele.id == event.eventObject.name) {
+                intersectingIndex.push(index)
               }
-            })}
-          {elements &&
-            elements.length > 0 &&
-            elements.map((e, i) => {
-              if (e.name != '') {
-                return (
-                  <>
-                    <mesh
-                      position={e.intersections.position}
-                      rotation={
-                        i == rotation.index
-                          ? [rotation.x, rotation.y, rotation.z]
-                          : e.intersections.rotation
-                      }
-                      onPointerOver={(e) => {
-                        (rotation.isRotate || rotation.isRotateZ) &&
-                        rotation.index == i
-                          ? setWireFrame({
-                              staticElements: -1,
-                              newElements: -1,
-                              elements: [-1]
-                            })
-                          : !elements[i].intersections.isintersect
-                          ? setWireFrame({
-                              staticElements: -1,
-                              newElements: -1,
-                              elements: [i]
-                            })
-                          : showBoundaries(elements, i)
-                      }}
-                      onPointerOut={(e) => {
-                        setWireFrame({
-                          staticElements: -1,
-                          newElements: -1,
-                          elements: [-1]
-                        })
-                      }}
-                      onContextMenu={(e) => {
-                        e.nativeEvent.preventDefault()
-                        handleContextMenu(e, i)
-                      }}
-                      onPointerMove={(event) => {
-                        document.body.style.cursor = 'crosshair'
-                        if (
-                          dragging &&
-                          (!rotation.isRotate || !rotation.isRotateZ) &&
-                          rotation.index != i &&
-                          !resize.isResize &&
-                          resize.index != i
-                        ) {
-                          findIndex(event, i)
-                        } else {
-                          if (
-                            (rotation.isRotate || rotation.isRotateZ) &&
-                            rotation.index == i
-                          ) {
-                            setElementRotation(event, i)
-                          }
-                          if (resize.isResize && resize.index == i) {
-                            setElemetArgs(event, i)
-                          }
-                        }
-                        setLastPosition([event.point.x, event.point.y])
-                      }}
-                      onPointerDown={(event) => {
-                        if (
-                          join == true &&
-                          e.name + e.id == elements[i].name + elements[i].id &&
-                          intersectingIndex[intersectingIndex.length - 1] != i
-                        ) {
-                          intersectingIndex.push(i)
-                          mergeElements(e)
-                        }
-                        if (event.eventObject.name == '') {
-                          event.eventObject.name = e.name + e.id
-                        }
-                        if (event.intersections[0].eventObject.name != '') {
-                          setDraggedElement(event.eventObject.name)
-                          setLastPosition([event.point.x, event.point.y])
-                          isdragging(true)
-                        }
-                      }}
-                      onPointerUp={(event) => {
-                        if (i == rotation.index) {
-                          e.intersections.rotation = [
-                            rotation.x,
-                            rotation.y,
-                            rotation.z
-                          ]
-                        }
-                        if (i == resize.index) {
-                          e.args = resize.args
-                        }
-                        setRotation({
-                          x: 0.5,
-                          y: 0.5,
-                          z: 0,
-                          isRotate: false,
-                          isRotateZ: false,
-                          index: -1
-                        })
-                        setSize({ args: [], index: -1, isResize: false })
-                        if (dragging) {
-                          //findIndex(event)
-                          let x = event.point.x
-                          let y = event.point.y
-                          if (event.eventObject.name == draggedElement) {
-                            e.intersections.position.x =
-                              event.eventObject.position.x
-                            e.intersections.position.y =
-                              event.eventObject.position.y
-                          }
-                          event.eventObject.name = e.name + e.id
-                          event.eventObject.userData = e.intersections
-                          e.intersections.boundaries = getBoundaries(
-                            event,
-                            i,
-                            false
-                          )
-                          event.eventObject.userData.boundaries =
-                            e.intersections.boundaries
-                          if (elements && elements.length >= 2) {
-                            elements.filter((ele, index) => {
-                              if (ele.name + ele.id == event.eventObject.name) {
-                                intersectingIndex.push(index)
-                              }
-                              if (
-                                event.eventObject.userData.isintersect ==
-                                  true &&
-                                ele.name + ele.id != event.eventObject.name &&
-                                ele.intersections.isintersect == true &&
-                                ele.intersections.intersectionName ==
-                                  event.eventObject.userData.intersectionName
-                              ) {
-                                let diffY = Math.abs(
-                                  y - ele.intersections.position.x
-                                )
-                                let diffX = Math.abs(
-                                  x - ele.intersections.position.x
-                                )
-                                ele.intersections.position.y =
-                                  y > ele.intersections.position.y
-                                    ? event.point.y + diffY
-                                    : event.point.y - diffY
-                                ele.intersections.position.x =
-                                  x > ele.intersections.position.x
-                                    ? event.point.x + diffX
-                                    : event.point.x - diffX
-                              }
-                        })
-                          }
-                        }
-                        setIntersectingIndex([-1])
-                        isdragging(false)
-                      }}>
-                      <e.name args={i == resize.index ? resize.args : e.args} />
-                      <meshStandardMaterial
-                        color={e.color}
-                        side={DoubleSide}
-                        wireframe={
-                          wireframe.elements.includes(i) ? true : false
-                        }
-                      />
-                      <Html></Html>
-                    </mesh>
-                  </>
+              if (
+                event.eventObject.userData.isintersect ==true &&
+                ele.name + ele.id != event.eventObject.name &&
+                ele.intersections.isintersect == true &&
+                ele.intersections.intersectionName ==
+                  event.eventObject.userData.intersectionName
+              ) {
+                let diffY = Math.abs(
+                  y - ele.intersections.position.x
                 )
+                let diffX = Math.abs(
+                  x - ele.intersections.position.x
+                )
+                ele.intersections.position.y =
+                  y > ele.intersections.position.y
+                    ? event.point.y + diffY
+                    : event.point.y - diffY
+                ele.intersections.position.x =
+                  x > ele.intersections.position.x
+                    ? event.point.x + diffX
+                    : event.point.x - diffX
               }
-            })}
-          {editableDiv && EditableText() }
+        })
+          }
+        }
+        setIntersectingIndex([-1])
+        isdragging(false)
+      }}>
+      <e.name args={i == resize.index ? resize.args : e.args} />
+      <meshStandardMaterial
+      color={e.color}
+      wireframe={e.wireframe}
+      />
+       <Stats />
+      <Html>
+      </Html>
+      {
+      }
+    </mesh>
+                </>
+              )
+              }
+            })
+          }
+          {editableDiv && EditableText()}
           { textArray && textArray.length > 0  && text()}
+          <color attach="background" args={[canvas[0].color]} />
         </Canvas>
+        <div
+        style={{
+          width: '10%',
+          height: '500px',
+          overflow: 'auto',
+          margin:'1%',
+          float:'left',
+          backgroundColor:'yellow'
+
+        }}>
+        <Preview  canvas={canvas} elements={elements}/>
+      </div>
+      <Image src={canvasURL} alt='test' width={100} height={100} style={{border:'solid',width:'auto',height:'auto',backgroundColor:'blue'}}/>
         <Menu 
         open={ textMenu !== null }
         onClose={handleClose}
@@ -1034,10 +1055,7 @@ export default function NewCanvas(props:any) {
             <MenuItem 
               onClick ={(e)=>{
               handleClose()
-              isEditableDiv(true)
-              }}>
-              Add Text
-          </MenuItem>
+            setSelected({name:'canvas', index:-1, elements:null})}}>Edit</MenuItem>
         </Menu>
         <Menu
           open={contextMenu !== null}
@@ -1047,8 +1065,16 @@ export default function NewCanvas(props:any) {
             contextMenu !== null
               ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
               : undefined
-          }>
-          
+          }
+          PaperProps={{
+            style: {
+              maxHeight: `100px`,
+              overflowY: 'scroll'
+            }
+          }}
+          >
+          <MenuItem onClick={()=>{setSelected({name:'element', index:contextMenu?contextMenu.index:0, elements:elements})
+            handleClose()}}>Edit</MenuItem>
           <MenuItem
             onClick={(e) =>
               detachElement(e, contextMenu?.index, contextMenu?.contextEvent)
@@ -1066,9 +1092,9 @@ export default function NewCanvas(props:any) {
           <MenuItem
             onClick={() => {
               setRotation({...rotation,
-                x: 0.5,
-                y: 0.5,
-                z: 0,
+                x: rotation.x,
+                y: rotation.y,
+                z: rotation.z,
                 isRotate: true,
                 isRotateZ: false,
                 index: contextMenu? contextMenu.index : 0
@@ -1080,9 +1106,9 @@ export default function NewCanvas(props:any) {
           <MenuItem
             onClick={() => {
               setRotation({...rotation,
-                x: 0,
-                y: 0,
-                z: 0,
+                x: rotation.x,
+                y: rotation.y,
+                z: rotation.z,
                 isRotate: false,
                 isRotateZ: true,
                 index: contextMenu?  contextMenu.index : 0
@@ -1094,17 +1120,25 @@ export default function NewCanvas(props:any) {
           <MenuItem
             onClick={() => {
               contextMenu &&
-                setSize({...resize, args: elements[contextMenu.index].args,
-                  index:  contextMenu ? contextMenu.index : 0,
-                  isResize: true})
+              setSize({...resize, args: elements[contextMenu.index].args,
+              index:  contextMenu ? contextMenu.index : 0,
+              isResize: true})
               handleClose()
             }}>
             ReSize
           </MenuItem>
-          <MenuItem><ColorPallet elements={elements} index ={contextMenu ? contextMenu.index : 0} setColor={setColor}/></MenuItem>
+          <MenuItem
+            onClick={() => {
+              contextMenu &&
+              elements.splice(contextMenu.index,1)
+              setSelected({name:'canvas', index:-1, elements:null})
+              handleClose()
+            }}>
+            Delete
+          </MenuItem>
         </Menu>
       </div>
     </div>
+    
   )
-  
 }

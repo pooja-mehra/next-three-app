@@ -1,10 +1,15 @@
-import { useState, useRef, useEffect, useMemo, Suspense } from 'react'
+import { useState, useRef, useEffect, useMemo, Suspense , lazy} from 'react'
 import { Canvas, useThree, useFrame, MeshProps, useLoader } from '@react-three/fiber'
 import {
   Text,
   MeshTransmissionMaterial,
   MeshDistortMaterial,
-  Html
+  Html,
+  Circle,
+  OrbitControls,
+  useGLTF,
+  Environment,
+  Center
 } from '@react-three/drei'
 import MultiList from '../shared/multilist'
 import * as THREE from 'three';
@@ -19,6 +24,9 @@ import PreviewTorus from '@/shared/previewTorus';
 import { Stats } from '@react-three/drei'
 import { Vector3, Quaternion } from 'three'
 import TextMesh from '../shared/previewText'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
+import Curve from '@/shared/curve';
+const ModelComponent = lazy(() => import("@/shared/model"));
 
 export default function Launch() {
   const [height, setHeight] = useState(0);
@@ -56,7 +64,6 @@ export default function Launch() {
       }
     }
     const ref = useRef<any>()
-  
     const v = useMemo(() => new Vector3(), [])
     const q = useMemo(() => new Quaternion(), [])
     const angularVelocity = useMemo(() => new Vector3(), [])
@@ -94,21 +101,29 @@ export default function Launch() {
       camera.lookAt(0, 0, 0)
     })
   }
+
+  const [hovered,setHover] = useState(false)
+  const hoverAnimation =(e:any) =>{
+    setHover(e)
+  }
   return (
       <div>
         <Canvas style={{backgroundColor:'white', height:height/3}}
-        camera={{ position: [0,0,6] }}>
-        {testArray.map((i) => (
-        <group key={i}>
-          <PreviewBox position={[-8, -2 + i * 1.5, 0]} text={'A'} scale={[3,1,1]} font={0.5} />
-          <PreviewBox position={[0, -2 + i * 1.5, 0]} text={'C'} scale={[3,1,1]} font={0.3} />
-          <PreviewBox position={[8, -2 + i * 1.5, 0]} text={'E'} scale={[3,1,1]} font={0.5}  />
-        </group>
-      ))}
+        camera={{ position: [0,0,6] }} >
+        <directionalLight position={[3.3, 1.0, 4.4]}  />
+        <PreviewSphere position={[-4, 2 , 0]} color={'white'} scale={[4,3,1]} hovered={hovered}
+          text={<PreviewSphere position={[0, 0, 0]} color={'black'} scale={[0.5,0.5,0.5]} />} font={0.1} />
+          <PreviewSphere position={[4, 2 , 0]} color={'white'} scale={[4,3,1]}  hovered={hovered}
+          text={<PreviewSphere position={[0, 0, 0]} color={'black'} scale={[0.5,0.5,0.5]} />} font={0.1} />
+          {
+            hovered &&
+            <><Curve r={5} y={1.3}/>
+            <Curve r={4.5} y={0.3}/></>
+          }
       <Rig />
         <Stats />
       </Canvas>
-      <MultiList height={height/3}/>
+      <MultiList height={height/3} hoverAnimation ={(e:any)=>hoverAnimation(e)}/>
       </div>
     )
 }

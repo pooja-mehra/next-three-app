@@ -1,15 +1,18 @@
 
 import { useState, useRef, useEffect, useMemo, Suspense } from 'react'
-import { Canvas, useThree, useFrame, MeshProps } from '@react-three/fiber'
+import { Canvas, useThree, useFrame, MeshProps, useLoader } from '@react-three/fiber'
 import { Text } from '@react-three/drei'
 import { Color, Vector3 } from 'three'
+import * as THREE from 'three';
 
 export default function PreviewBox(props:any){
+  const texture = new THREE.TextureLoader().load('images/grid.png' );
+  //const texture = useLoader(THREE.TextureLoader,[...url])
   const ref = useRef<any>() 
   const black = useMemo(() => new Color('black'), [])
-  const lime = useMemo(() => new Color('teal'), [])
+  const lime = useMemo(() => new Color('lime'), [])
   const [hovered, setHovered] = useState(false)
-    useFrame(({mouse,viewport}) => {
+   useFrame(({mouse,viewport}) => {
     const x = (mouse.x * viewport.width) * 2.5
     const y = (mouse.y * viewport.height) *2.5
     !hovered && props.isMultiList || props.isText ? ref.current.lookAt(0,0,0):ref.current.lookAt(x, y, 1) 
@@ -19,10 +22,10 @@ export default function PreviewBox(props:any){
         <mesh {...props} ref ={ref}
         onPointerOver={() => setHovered(true)}
         onPointerOut={(e) => {setHovered(false)}}
+       // material={new THREE.MeshBasicMaterial({ map: texture })}
         >
         <boxGeometry />
-        <meshBasicMaterial color={lime} />
-        <Text fontSize={props.font} position-z={0.501} >
+        <Text fontSize={props.font} position-z={0.6} >
         {props.text}
         </Text>
         </mesh>
