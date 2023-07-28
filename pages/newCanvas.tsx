@@ -827,7 +827,6 @@ export default function NewCanvas(props:any) {
                   </div>
                   </Html>
                   <StaticMesh element={element} i = {i}/>
-                  <Stats />
                 </Canvas>
               </div>
             </>
@@ -853,14 +852,14 @@ export default function NewCanvas(props:any) {
       <div style={{float:'left', marginLeft:'-8%'}}>
           Previous
       </div>
-      <div style={{marginLeft:'76%'}}>
+      <div style={{marginLeft:'90%'}}>
           Next
       </div>
       </div>
         <Canvas
           ref={canvasRef}
           style={{
-            width: '60%',
+            width: '75%',
             height: '500px',
             float:'left',
             marginTop:'1%',
@@ -1015,7 +1014,6 @@ export default function NewCanvas(props:any) {
       color={e.color}
       wireframe={e.wireframe}
       />
-       <Stats />
       <Html>
       </Html>
       {
@@ -1042,7 +1040,6 @@ export default function NewCanvas(props:any) {
         }}>
         <Preview  canvas={canvas} elements={elements}/>
       </div>
-      <Image src={canvasURL} alt='test' width={100} height={100} style={{border:'solid',width:'auto',height:'auto',backgroundColor:'blue'}}/>
         <Menu 
         open={ textMenu !== null }
         onClose={handleClose}

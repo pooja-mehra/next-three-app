@@ -121,7 +121,6 @@ export default function Launch() {
             <Curve r={4.5} y={0.3}/></>
           }
       <Rig />
-        <Stats />
       </Canvas>
       <MultiList height={height/3} hoverAnimation ={(e:any)=>hoverAnimation(e)}/>
       </div>
