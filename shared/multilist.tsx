@@ -19,8 +19,7 @@ import BounceLoader from "react-spinners/BounceLoader";
 
 export default function MultiList(props:any){
   const [background,setBackground] = useState({toggle:false,index:-1})
-  const ImageListArray = [{text:'Go!',url:'./newCanvas'}, {text:'..',url:'/'}, {text:'....', url:'/'}, {text:'......', url:'/'}, 
-  {text:'........', url:'/'}]
+  const ImageListArray = [{text:'+',url:'./newCanvas'}]
   const imageListRef = useRef<any>();
   const [activeIndex, setActiveIndex] = useState(0);
   const [isLoading,setIsLoading] = useState({toggle:false,index:-1});

@@ -842,7 +842,6 @@ export default function NewCanvas(props:any) {
           float: 'left',
           overflow: 'auto',
           margin:'1%',
-          backgroundColor:'yellow',
           marginTop:'2%',
         }}>
       <LeftPane selected={selected} setColor={setColor} EditableText={EditableText} setEditableDiv={setEditableDiv} setFontSize={setFontSize} setFont={setFont} setWireFrame={setWireFrame}
@@ -1035,7 +1034,6 @@ export default function NewCanvas(props:any) {
           overflow: 'auto',
           margin:'1%',
           float:'left',
-          backgroundColor:'yellow'
 
         }}>
         <Preview  canvas={canvas} elements={elements}/>
