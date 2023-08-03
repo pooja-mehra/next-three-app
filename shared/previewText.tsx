@@ -1,33 +1,20 @@
-import { extend, Object3DNode } from '@react-three/fiber';
-import * as React from 'react';
-import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry';
-import { FontLoader } from 'three/examples/jsm/loaders/FontLoader';
-import {
-    Text,
-    MeshTransmissionMaterial,
-    MeshDistortMaterial,
-    Html
-  } from '@react-three/drei'
 
-export default function TextMesh () {
-    const font = new FontLoader().parse( 'three.js-master/examples/fonts/helvetiker_regular.typeface.json')
-    /*const Text = () => {
-        return new TextGeometry( 'Hello three.js!', {
-        font: font,
-        size: 80,
-        height: 5,
-        curveSegments: 12,
-        bevelEnabled: true,
-        bevelThickness: 10,
-        bevelSize: 8,
-        bevelOffset: 0,
-        bevelSegments: 5
-    })}*/
-
-    return (
-    <Html>
-        <div style={{color:'red', marginRight:'-100px'}} onClick={(e)=>console.log(e)}>Test</div>
-      </Html>
-    );
-    
+export default function PreviewText(props:any) {
+  const { children, position, scale, color, fontSize, fontFamily, opacity} = props 
+  var canvas = document.createElement('canvas')
+  var context:any = canvas.getContext('2d')
+  context.textBaseline = 'middle'
+  context.font = `${fontSize}px ${fontFamily}`
+  var metrics = context.measureText(children)
+  var textWidth = metrics.width
+  context.lineWidth = 6
+  context.fillStyle = color
+  context.fillText(children, textWidth - textWidth * 0.8, fontSize)
+  return (
+    <sprite  scale={scale} position={position}>
+      <spriteMaterial sizeAttenuation={false} attach="material" transparent alphaTest={0.5} opacity={1}>
+        <canvasTexture attach="map" image={canvas} />
+      </spriteMaterial>
+    </sprite>
+  )
 }

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, Suspense, useLayoutEffect, useCallback, ReactElement } from 'react'
 import { animated } from '@react-spring/three'
-import { Canvas, useThree, useFrame, MeshProps} from '@react-three/fiber'
+import { Canvas, useThree, useFrame, MeshProps, context} from '@react-three/fiber'
 import {
   Text,
   MeshTransmissionMaterial,
@@ -64,6 +64,13 @@ import { setInterval } from 'timers'
 import Preview from '@/shared/preview'
 import { ScreenCapture } from 'react-screen-capture';
 import Image from 'next/image'
+import html2canvas from "html2canvas";
+import Button from '@mui/material/Button';
+import StartIcon from '@mui/icons-material/Start';
+import StopIcon from '@mui/icons-material/Stop';
+import { SpriteText2D, textAlign, MeshText2D} from 'three-text2d'
+//import PreviewText from '../shared/previewText'
+import { fontStyle } from 'html2canvas/dist/types/css/property-descriptors/font-style'
 const AnimatedMeshDistortMaterial:any = animated(MeshDistortMaterial)
 
 export default function NewCanvas(props:any) {
@@ -84,16 +91,16 @@ export default function NewCanvas(props:any) {
   const [open, setOpen] = useState(true);
   const elements = useMemo(() => new Array(),[])
   const [newcolor,setNewColor] = useState('#ff6d6d')
-  const [font, setFontStyle] = useState({style:'serif', size:'15px'})
+  const [font, setFontStyle] = useState({style:'serif', size:'15px', index:-1})
   const [selected,setSelected] = useState<any>()
   const [wireframe,isWireFrame] = useState(false)
   const [autoRotate,isAutoRotate] = useState(false)
   const canvas = useMemo(()=> [{color:'white'}],[])
-  const gl = THREE.WebGLRenderer
   /*const color = useControls({
     value: 'lightblue',
   })*/
   const [canvasURL,setCanvasURL] = useState('')
+
   const setEditableDiv = () =>{
     isEditableDiv(true)
   }
@@ -117,13 +124,25 @@ export default function NewCanvas(props:any) {
   }
 
   const setFont = (fontFamily:string, index:number, elements:any) =>{
-    setFontStyle({...font,style:fontFamily})
-    textArray[index].fontFamily = fontFamily
+    //textArray[index].fontFamily = fontFamily
+    //setFontStyle({...font,style:fontFamily, index:index})
+    setTextArray(textArray.map((t:any,i:number)=> {
+      if (index == i) {
+        return {...t,fontFamily:fontFamily}
+      } else {
+        return t;
+      }}))
   }
 
   const setFontSize = (size:string, index:number, elements:any) =>{
-    setFontStyle({...font,size:size})
-    textArray[index].fontSize = size
+    //setFontStyle({...font,size:size, index:index})
+    //textArray[index].fontSize = size
+    setTextArray(textArray.map((t:any,i:number)=> {
+      if (index == i) {
+        return {...t,fontSize:size}
+      } else {
+        return t;
+      }}))
   }
 
   const setWireFrame = (element:any,index:number) =>{
@@ -139,10 +158,8 @@ export default function NewCanvas(props:any) {
     element[index].autoRotate = !element[index].autoRotate
     //if(!autoRotate){
     const interval = setInterval(() => {
-        console.log('inside interval');
     }, 500);
     setTimeout(() =>{
-      console.log('stop interval');
       clearInterval(interval), 5000})
     }
 
@@ -701,7 +718,6 @@ export default function NewCanvas(props:any) {
           onKeyDown={(e:any)=>{
           if(e.ctrlKey && e.code == 'KeyS'){
             let translate = e.target.offsetParent.attributes.style.value.split('translate')
-            console.log(translate)
             let position = translate && translate.length > 1 ?e.target.offsetParent.attributes.style.value.split('translate')[1].match(/\d+/g):[0,0]
             isEditableDiv(false)
             e.target.innerText != '' && setTextArray([...textArray, {text:e.target.innerText, opacity:1, left:position[0], top:position[1], color:'black',fontFamily:'serif',fontSize:'15px'}])
@@ -720,35 +736,73 @@ export default function NewCanvas(props:any) {
     )
   }
 
-  const setText = () => {
-    var tx = document.getElementsByClassName('comment-area-responsive');
-    for (var i = 0; i < tx.length; i++) {
-      tx[i].setAttribute('style', 'height:' + (tx[i].scrollHeight) + 'px;overflow-y:hidden;');
-    }
+  const setPreviewText =(isText:boolean)=>{
+    setEditText(!isText)
   }
-  
+
+  const PreviewText = (props:any) =>{
+    const { children, position, scale, color, fontSize, fontFamily, opacity} = props 
+    var canvas = document.createElement('canvas')
+    var context:any = canvas.getContext('2d')
+    context.textBaseline = 'left'
+    context.font = `${fontSize}px ${fontFamily}`
+    var metrics = context.measureText(children)
+    var textWidth = metrics.width
+    context.fillStyle = color
+    context.fillText(children, textWidth - textWidth * 0.8, fontSize)
+    return (
+      <sprite  scale={scale} position={position}>
+        <spriteMaterial sizeAttenuation={false} attach="material" alphaTest={0.3} opacity={opacity} color={color}>
+          <canvasTexture attach="map" image={canvas} />
+        </spriteMaterial>
+      </sprite>
+    )
+  }
+
+  const [editText,setEditText] = useState(true)
   const text = () =>{
     return(
     textArray 
-    .map((t:any,i)=> 
-          <Html  key ={i} >
-           <Draggable>
-            <div id ={'text'+i} style={{left:t.left, top:t.top ,minWidth:'100px'}} 
-              onPointerOver ={(e)=>{setTextArray(textArray.map((t:any,index:number)=> {
-                if (index == i) {
-                  return {...t,opacity:1}
-                } else {
-                  return t;
-                }
-              }))}}
+    .map((t:any,i)=>
+    <>
+    {
+       t.text.split('\n').map((pt:any,j:number)=> 
+        <PreviewText scale={new Vector3(1,0.5,1)}  position={new Vector3(t.left == 0? 2: 2 + t.left/80 ,t.top == 0? -1.5 + j/3: -1.5 - t.top/80 + j/3,1)} key ={'previewtext'+i +'subtext'+j} 
+        fontSize={parseInt(t.fontSize)} color= {t.color} fontFamily ={t.fontFamily} opacity={editText ? 0 : 1}>
+        {pt}
+        </PreviewText>
+      )
+    }
+    <Html key ={'text'+i}>
+      <Draggable>
+        <div id ={'text'+i} style={{left:t.left, top:t.top ,minWidth:'100px', opacity:editText ? 1 : 0}}
+          onPointerOver ={(e)=>{
+          setEditText(true)
+          setTextArray(textArray.map((t:any,index:number)=> {
+          if (index == i) {
+            return {...t,opacity:1}
+          } else {
+            return t;
+          }}))}}
+          onPointerUp = {(e:any)=>{
+            setSelected({name:'text', index:i, elements:textArray})
+            setTextArray(textArray.map((t:any,index:number)=> {
+              if (index == i) {
+                let result = (e.target.attributes.style.value.split('translate')[1]?e.target.attributes.style.value.split('translate')[1].match(/-?\d+/g):e.target.offsetParent.attributes.style.value.split('translate')[1].match(/-?\d+/g)).map((n:any) => parseInt(n));
+                return {...t,left:result[0],top:result[1]}
+              } else {
+                return t;
+              }
+            }))
+           }}
               onPointerOut ={(e)=>{setTextArray(textArray.map((t:any,index:number)=> {
+                setEditText(false)
                 if (index == i) {
                   return {...t,opacity:0}
                 } else {
                   return t;
                 }
-              }))}}>
-             
+              }))}} >
               <div style={{opacity:t.opacity, zIndex:10}} >
               <button contentEditable={false}  style = {{position:'relative',float:'right', marginTop: '0px',opacity:t.opacity, height:'27px'}}
               onClick = {(e)=>{ 
@@ -761,8 +815,9 @@ export default function NewCanvas(props:any) {
                 setSelected({name:'text', index:i, elements:textArray})
               }}>
                 <DetailsIcon fontSize="inherit"/></button>
-                </div>
-              <p contentEditable suppressContentEditableWarning={true} style={{width:'max-content', whiteSpace:'pre-wrap', lineHeight:'20px', color:t.color, fontFamily:t.fontFamily, fontSize:t.fontSize}}
+              </div>
+              <p contentEditable suppressContentEditableWarning={true} style={{position:'relative', width:'max-content',
+              whiteSpace:'pre-wrap', lineHeight:'20px', color:t.color, fontFamily:t.fontFamily, fontSize:t.fontSize}}
               onKeyDown={(e:any)=>{ 
                 if(e.code == 'KeyS' && e.ctrlKey){
                   if(e.target.innerText == ''){
@@ -779,21 +834,52 @@ export default function NewCanvas(props:any) {
                   }
                 }
               }}
-                onPointerUp = {(e:any)=>{
-                  setTextArray(textArray.map((t:any,index:number)=> {
-                    if (index == i) {
-                      let result = (e.target.offsetParent.attributes.style.value.split('translate')[1].match(/\d+/g)).map((n:any) => parseInt(n));
-                      console.log(result)
-                      return {...t,left:result[0],top:result[1]}
-                    } else {
-                      return t;
-                    }
-                  }))
-                 }} >{t.text}
-            </p></div></Draggable></Html>
+              >{t.text}
+            </p></div>
+          </Draggable>
+            </Html> 
+            </>
           ));
   }
-
+  
+  const ScreenshotButton = () =>{
+    const { gl, scene, camera } = useThree()     
+      function ScreenShot(){
+      setEditText(false)
+      setTimeout(()=>{
+        gl.render(scene, camera)
+        gl.domElement.toBlob(
+          function(blob:any) {
+            const image:any = document.getElementById('img');
+            const imgDiv:any = document.getElementById('imgdiv');
+            imgDiv.style.opacity = 1
+            //var a = document.createElement('a')
+            var url = URL.createObjectURL(blob)
+            image.src = url
+            //a.download = 'canvas.jpg'
+            ///a.click()
+            image.addEventListener("mouseenter", function () {
+              image.style.transform = 'scale(3)'
+          });
+          image.addEventListener("mouseleave", function () {
+            image.style.transform = 'scale(1)'
+          });
+          },
+          'image/jpg',
+          1.0
+        )
+      },500)
+     }
+      gl.domElement.toDataURL()
+      return (
+        <Html> 
+          <div style={{position:'fixed',marginTop:canvasRef.current.clientHeight/3+'px', marginLeft:canvasRef.current.clientWidth/3+'px'}}>
+          <Button variant="contained" onClick={ScreenShot} color="success">Save</Button>
+          </div>
+        </Html>
+      );
+  }
+  
   return (
     <div style={{ height: props.height }}>
       <div
@@ -847,14 +933,6 @@ export default function NewCanvas(props:any) {
       <LeftPane selected={selected} setColor={setColor} EditableText={EditableText} setEditableDiv={setEditableDiv} setFontSize={setFontSize} setFont={setFont} setWireFrame={setWireFrame}
       setElementSize={setElementSize} setAutoRotate = {setAutoRotate}/>
       </div>
-      <div style={{marginTop:'-2%'}}>
-      <div style={{float:'left', marginLeft:'-8%'}}>
-          Previous
-      </div>
-      <div style={{marginLeft:'90%'}}>
-          Next
-      </div>
-      </div>
         <Canvas
           ref={canvasRef}
           style={{
@@ -863,18 +941,17 @@ export default function NewCanvas(props:any) {
             float:'left',
             marginTop:'1%',
           }}
-          onClick={()=>{
-            let ref = canvasRef.current
-            console.log(ref.toDataURL())
-            setCanvasURL(ref.toDataURL())}}
           onContextMenu={(e)=>{
             e.nativeEvent.preventDefault()
             isEditableDiv(false)
             setLastPosition([e.clientX - 600,e.clientY - 500])
             contextMenu == null && handleTextMenu(e)
           }}>
+          <ScreenshotButton />
           <ambientLight intensity={1} ></ambientLight>
           <pointLight intensity={2} position={[1,1,1]} />
+      {editableDiv && EditableText()}
+      {textArray && textArray.length > 0 && text()} 
       {elements &&
       elements.length > 0 &&
       elements.map((e, i) => {
@@ -928,7 +1005,6 @@ export default function NewCanvas(props:any) {
         if (event.eventObject.name == '') {
           event.eventObject.name = e.name + e.id
         }
-        console.log(event.eventObject)
         if (event.intersections[0].eventObject.name != '') {
           setDraggedElement(event.eventObject.name)
           setLastPosition([event.point.x, event.point.y])
@@ -936,7 +1012,6 @@ export default function NewCanvas(props:any) {
         }
       }}
       onPointerUp={(event) => {
-        console.log(event.eventObject)
         if (i == rotation.index) {
           e.intersections.rotation = [
             rotation.x,
@@ -1008,7 +1083,7 @@ export default function NewCanvas(props:any) {
         setIntersectingIndex([-1])
         isdragging(false)
       }}>
-      <e.name args={i == resize.index ? resize.args : e.args} />
+      <e.name args={i == resize.index ? resize.args : e.args}/>    
       <meshStandardMaterial
       color={e.color}
       wireframe={e.wireframe}
@@ -1018,15 +1093,12 @@ export default function NewCanvas(props:any) {
       {
       }
     </mesh>
-                </>
-              )
-              }
-            })
-          }
-          {editableDiv && EditableText()}
-          { textArray && textArray.length > 0  && text()}
-          <color attach="background" args={[canvas[0].color]} />
-        </Canvas>
+    </>
+    )}
+    })
+    }
+    <color attach="background" args={[canvas[0].color]} />
+  </Canvas>
         <div
         style={{
           width: '10%',
@@ -1034,9 +1106,8 @@ export default function NewCanvas(props:any) {
           overflow: 'auto',
           margin:'1%',
           float:'left',
-
         }}>
-        <Preview  canvas={canvas} elements={elements}/>
+        <Preview  canvas={canvas} elements={elements} canvasRef ={canvasRef} textArray={textArray} recStarted={setPreviewText}/>
       </div>
         <Menu 
         open={ textMenu !== null }
