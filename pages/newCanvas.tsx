@@ -170,18 +170,20 @@ export default function NewCanvas(props:any) {
       z: element[index].intersections.rotation[1] += 0.5,
       isRotate:true,
       isRotateZ: false,
-      index: index
+      index: index,
+      rotationTool:'cursor'
     })
   }
 
   const setElementSize = (size:number, name:number, element:any,index:number) =>{
     if([0,1,2].includes(name)){
       let args = []
-      element[index].args[name] = size
       name == 0? args.push(size,element[index].args[1],element[index].args[2]): name == 1 ? args.push(element[index].args[0],size,element[index].args[2]) : args.push(element[index].args[0],element[index].args[1],size)
+      element[index].args = args
       setSize({args:args, index:index, isResize: true, sizeTool:'slider' })
     } else{
       let rotaionArgs = []
+      console.log(name)
       element[index].intersections.rotation[name] = size
       name == 3? rotaionArgs.push(size,element[index].intersections.rotation[1],element[index].intersections.rotation[2]): 
       name == 4 ? rotaionArgs.push(element[index].intersections.rotation[0],size,element[index].intersections.rotation[2]) : 
@@ -192,7 +194,8 @@ export default function NewCanvas(props:any) {
         z: rotaionArgs[2],
         isRotate:true,
         isRotateZ: false,
-        index: index
+        index: index,
+        rotationTool:'slider'
       })
     }
     
@@ -253,7 +256,8 @@ export default function NewCanvas(props:any) {
     z: 0,
     isRotate: false,
     isRotateZ: false,
-    index: -1
+    index: -1,
+    rotationTool:'cursor'
   })
   const [resize, setSize] = useState({
     args: [0, 0, 0],
@@ -572,6 +576,28 @@ export default function NewCanvas(props:any) {
           right:
             event.eventObject.position.x + event.eventObject.userData.args[0]
         }
+        case 'ConeGeometry':
+        return {
+          top:
+            event.eventObject.position.y + event.eventObject.userData.args[1],
+          bottom:
+            event.eventObject.position.y - event.eventObject.userData.args[1],
+          left:
+            event.eventObject.position.x - event.eventObject.userData.args[0],
+          right:
+            event.eventObject.position.x + event.eventObject.userData.args[0]
+        }
+        case 'TorusGeometry':
+        return {
+          top:
+            event.eventObject.position.y + event.eventObject.userData.args[0],
+          bottom:
+            event.eventObject.position.y - event.eventObject.userData.args[0],
+          left:
+            event.eventObject.position.x - event.eventObject.userData.args[0],
+          right:
+            event.eventObject.position.x + event.eventObject.userData.args[0]
+        }
       default:
         return { top: 0, bottom: 0, right: 0, left: 0 }
     }
@@ -601,7 +627,8 @@ export default function NewCanvas(props:any) {
           z: rotation.z,
           isRotate: false,
           isRotateZ: true,
-          index: index ? index : 0
+          index: index ? index : 0,
+          rotationTool:'cursor'
         })
       : setRotation({
           x: rotation.x,
@@ -609,7 +636,8 @@ export default function NewCanvas(props:any) {
           z: rotation.z,
           isRotate: true,
           isRotateZ: false,
-          index: index ? index : 0
+          index: index ? index : 0,
+          rotationTool:'cursor'
         })
   }
 
@@ -692,6 +720,39 @@ export default function NewCanvas(props:any) {
           resize.args[2]
         ]
         setSize({ args: sphereArgs, index: index, isResize: true, sizeTool:'cursor'  })
+        return
+        case 'ConeGeometry':
+        let coneArgs = [
+          incrementX == 'positive'
+            ? resize.args[0] + 0.1
+            : incrementX == 'negative' && resize.args[0] > 0.2
+            ? resize.args[0] - 0.1
+            : resize.args[0],
+          incrementX == 'positive'
+            ? resize.args[1] + 0.1
+            : incrementX == 'negative' && resize.args[0] > 0.2
+            ? resize.args[1] - 0.1
+            : resize.args[1],
+          incrementY == 'positive'
+            ? resize.args[2] + 0.1
+            : incrementY == 'negative'
+            ? resize.args[2] - 0.1
+            : resize.args[2]
+        ]
+        setSize({ args: coneArgs, index: index, isResize: true, sizeTool:'cursor'  })
+        return
+        case 'TorusGeometry':
+        let torusArgs = [
+          incrementX == 'positive' || incrementY == 'positive'
+            ? resize.args[0] + 0.1
+            : (incrementX == 'negative' || incrementY == 'negative') &&
+              resize.args[0] > 0.2
+            ? resize.args[0] - 0.1
+            : resize.args[0],
+          resize.args[1],
+          resize.args[2]
+        ]
+        setSize({ args: torusArgs, index: index, isResize: true, sizeTool:'cursor'  })
         return
       default:
         return
@@ -873,8 +934,8 @@ export default function NewCanvas(props:any) {
       gl.domElement.toDataURL()
       return (
         <Html> 
-          <div style={{position:'fixed',marginTop:canvasRef.current.clientHeight/3+'px', marginLeft:canvasRef.current.clientWidth/3+'px'}}>
-          <Button variant="contained" onClick={ScreenShot} color="success">Save</Button>
+          <div style={{position:'fixed',marginTop:2*canvasRef.current.clientHeight/5+'px', marginLeft:2*canvasRef.current.clientWidth/5+'px'}}>
+          <Button variant="contained" onClick={ScreenShot} color="inherit">Save</Button>
           </div>
         </Html>
       );
@@ -894,8 +955,7 @@ export default function NewCanvas(props:any) {
         id="properties">
         {geometry.map((element, i) => {
           return (
-            <>
-              <div style={{ float: 'left', width: '10%' }}>
+              <div style={{ float: 'left', width: '10%' }}  key ={i}>
                 <Canvas camera={{ position: [0, 0, 2] }}>
                   <ambientLight intensity={1} ></ambientLight>
                   <pointLight intensity={1} position={[1, 1, 1]} />
@@ -915,7 +975,6 @@ export default function NewCanvas(props:any) {
                   <StaticMesh element={element} i = {i}/>
                 </Canvas>
               </div>
-            </>
           )
         })}
       </div>
@@ -957,8 +1016,7 @@ export default function NewCanvas(props:any) {
       elements.map((e, i) => {
       if (e.name != '') {
       return (
-      <>
-      <mesh
+      <mesh key ={i}
       position={e.intersections.position}
       rotation={
         i == rotation.index
@@ -983,7 +1041,7 @@ export default function NewCanvas(props:any) {
         } else {
           if (
             (rotation.isRotate || rotation.isRotateZ) &&
-            rotation.index == i
+            rotation.index == i && rotation.rotationTool =='cursor'
           ) {
             setElementRotation(event, i)
           }
@@ -1019,7 +1077,7 @@ export default function NewCanvas(props:any) {
             rotation.z
           ]
         }
-        if (i == resize.index && resize.sizeTool == 'cursor') {
+        if (i == resize.index) {
           e.args = resize.args
         }
         setRotation({
@@ -1028,7 +1086,8 @@ export default function NewCanvas(props:any) {
           z: rotation.x,
           isRotate: false,
           isRotateZ: false,
-          index: -1
+          index: -1,
+          rotationTool:'cursor'
         })
         setSize({ args: [], index: -1, isResize: false , sizeTool:'cursor' })
         if (dragging) {
@@ -1060,7 +1119,7 @@ export default function NewCanvas(props:any) {
                 ele.name + ele.id != event.eventObject.name &&
                 ele.intersections.isintersect == true &&
                 ele.intersections.intersectionName ==
-                  event.eventObject.userData.intersectionName
+                event.eventObject.userData.intersectionName
               ) {
                 let diffY = Math.abs(
                   y - ele.intersections.position.x
@@ -1093,7 +1152,6 @@ export default function NewCanvas(props:any) {
       {
       }
     </mesh>
-    </>
     )}
     })
     }
@@ -1188,7 +1246,7 @@ export default function NewCanvas(props:any) {
               contextMenu &&
               setSize({...resize, args: elements[contextMenu.index].args,
               index:  contextMenu ? contextMenu.index : 0,
-              isResize: true})
+              isResize: true, sizeTool:'cursor'})
               handleClose()
             }}>
             ReSize

@@ -17,7 +17,7 @@ export default function ElementSlider(props:any){
         sliderArray.map((s,i)=>{
         return(<Stack spacing={5} style={{ margin: '10%' }} key={i}>
           <Slider aria-label="Volume" value={value.name == i? value.value : i<3 ?args[i]: rotationArgs[i]} onChange={handleChange} name={i.toString()} min={0.1}
-          marks step={0.5} max={5} style={{width:'200px', overflowX:'auto' }}/>{labels[i]} 
+          marks step={labels[i]=='angle'?1:.5} max={labels[i]=='angle'?20:5} style={{width:'200px', overflowX:'auto' }}/>{labels[i]} 
         </Stack>)
       }))
     }
@@ -34,6 +34,14 @@ export default function ElementSlider(props:any){
         return(<>
           <Sliders range={1} labels={['Radius']} args={selected.elements[selected.index].args} rotationArgs={selected.elements[selected.index].intersections.rotation}/>
         </>)
+         case 'ConeGeometry':
+          return(<>
+            <Sliders range={6} labels={['Radius','Height', 'angle','Rotate X', 'Rotate Y']} args={selected.elements[selected.index].args} rotationArgs={selected.elements[selected.index].intersections.rotation}/>
+          </>)
+          case 'TorusGeometry':
+            return(<>
+              <Sliders range={1} labels={['Radius']} args={selected.elements[selected.index].args} rotationArgs={selected.elements[selected.index].intersections.rotation}/>
+            </>)
       default:
         return (<Stack spacing={0}>
         </Stack>)
