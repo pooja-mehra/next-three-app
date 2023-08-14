@@ -1,7 +1,6 @@
 
-import { useState, useRef, useEffect, useMemo, Suspense } from 'react'
-import { Canvas, useThree, useFrame, MeshProps } from '@react-three/fiber'
-import { Euler } from 'three';
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
 
 export default function PreviewCone(props:any){
     const ref = useRef<any>()

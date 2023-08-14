@@ -1,13 +1,10 @@
 import AddIcon from '@mui/icons-material/Add';
 import IconButton from '@mui/material/IconButton';
-import StartIcon from '@mui/icons-material/Start';
-import StopIcon from '@mui/icons-material/Stop';
-import Image from 'next/image';
 import { useState } from 'react';
+import Tooltip from '@mui/material/Tooltip';
 
 export default function Preview(props:any){
-    const {canvas, elements, canvasRef, textArray} = props
-    //const [url,setURL] = useState<any>()
+    const {canvas, elements, canvasRef, textArray,sequence} = props
     const [test,setTest] = useState<any>(null)
     const [test1,set1] = useState<any>(null)
     const startRecording = (function (){
@@ -23,14 +20,9 @@ export default function Preview(props:any){
         set1(url)
       }
       );
-
-      
-     
-
       return { 
         stopRecording() {
         rec.stop()
-        console.log(test1)
         video.src = test1 == null ? url : test1 
         //exportVid(new Blob(chunks, {type: 'video/webm'}));
       },
@@ -57,12 +49,18 @@ export default function Preview(props:any){
     return (
         <div style={{textAlign:'center',height:'400px'}} >
             <div style={{height:'10%', marginTop :'2%'}}>
-            <IconButton aria-label="add">
-                <AddIcon />
+            <Tooltip title={'Add New'}>
+            <IconButton aria-label="add" onClick={props.clearCanvas}>
+              <AddIcon />
             </IconButton>
+            </Tooltip>
              </div>
             <div style={{height:'20%',border:'solid', opacity :0}} id={'imgdiv'}>
-              <img style={{height:'100%', width:'100%',transform:'scale(1)'}} alt={'test'} src={''} id={'img'}/>
+              {
+                sequence?<video style={{height:'100%', width:'100%'}} controls></video>
+                :<img style={{height:'100%', width:'100%',transform:'scale(1)'}} alt={'test'} src={''} id={'img'}/>
+
+              }
             </div>
         </div>)
 }
@@ -82,3 +80,9 @@ export default function Preview(props:any){
              /*<div style={{height:'20%',border:'solid'}}>
               <video style={{height:'100%', width:'100%'}} controls></video>
             </div>*/
+            /*
+            <Tooltip title={'Add New'}>
+            <IconButton aria-label="add" onClick={props.clearCanvas}>
+              <AddIcon />
+            </IconButton>
+            </Tooltip>*/

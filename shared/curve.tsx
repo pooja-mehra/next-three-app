@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react"
+import React, { useRef } from "react"
 import * as THREE from "three"
 
 export default function  Curve(props:any) {

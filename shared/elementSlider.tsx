@@ -1,13 +1,13 @@
 import Stack from '@mui/material/Stack'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Slider from '@mui/material/Slider';
 
 export default function ElementSlider(props:any){
-    const {selected, maxRange} = props
+    const {selected, maxRange,action} = props
     const [value, setValue] = useState<any>({value:0.1,name:''});
     const handleChange = (event: any, newValue: number | number[]) => {
     setValue({value:newValue, name:event.target?parseInt(event.target.name):''})
-    props.setElementSize(newValue,event.target && parseInt(event.target.name), selected.elements, selected.index)
+    props.setElementSize(newValue,event.target && parseInt(event.target.name), selected.elements, selected.index,action)
     }
 
     const Sliders = (props:any):any => {

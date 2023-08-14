@@ -1,6 +1,6 @@
 
-import { useState, useRef, useEffect, useMemo, Suspense } from 'react'
-import { Canvas, useThree, useFrame, MeshProps } from '@react-three/fiber'
+import {  useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
 
 export default function PreviewCylinder(props:any){
     const ref = useRef<any>()

@@ -1,5 +1,4 @@
-import { useState, useRef, useEffect, useMemo, Suspense, useLayoutEffect, useCallback } from 'react'
-import { moveCursor } from 'readline';
+import { useState } from 'react'
 
 export default function Font(props:any) {
     const {elements, index } = props

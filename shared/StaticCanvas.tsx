@@ -1,21 +1,6 @@
 import Geometries from "./geometries"
-import { useState, useRef, useEffect, useMemo, Suspense, useLayoutEffect, useCallback } from 'react'
-import { Canvas, useThree, useFrame, MeshProps } from '@react-three/fiber'
-import {
-    BoxGeometry,
-    BufferGeometry,
-    Mesh,
-    DoubleSide,
-    Vector3,
-    Scene,
-    PerspectiveCamera,
-    WebGLRenderer,
-    MeshStandardMaterial,
-    AmbientLight,
-    DirectionalLight,
-    PointLight,
-    BackSide
-  } from 'three'
+import { useState, useRef} from 'react'
+import { useFrame } from '@react-three/fiber'
 
 export default function StaticCanvas(props:any){
     const geometry = Geometries('#ff6d6d')

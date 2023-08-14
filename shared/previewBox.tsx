@@ -1,6 +1,6 @@
 
-import { useState, useRef, useEffect, useMemo, Suspense } from 'react'
-import { Canvas, useThree, useFrame, MeshProps, useLoader } from '@react-three/fiber'
+import { useState, useRef, useMemo } from 'react'
+import {  useFrame } from '@react-three/fiber'
 import { Text } from '@react-three/drei'
 import { Color, Vector3 } from 'three'
 import * as THREE from 'three';

@@ -1,6 +1,6 @@
 
-import { useState, useRef, useEffect, useMemo, Suspense } from 'react'
-import { Canvas, useThree, useFrame, MeshProps } from '@react-three/fiber'
+import { useState, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
 import { Text } from '@react-three/drei'
 
 export default function PreviewSphere(props:any){

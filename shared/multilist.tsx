@@ -3,19 +3,11 @@ import ImageList from '@mui/material/ImageList';
 import ImageListItem from '@mui/material/ImageListItem';
 import ImageListItemBar from '@mui/material/ImageListItemBar';
 import Link from 'next/link';
-import Image from 'next/image';
-import { Canvas, useThree, useFrame, MeshProps,useLoader } from '@react-three/fiber'
-import { useState, useRef, useEffect, useMemo, Suspense } from 'react'
+import { Canvas } from '@react-three/fiber'
+import { useState, useRef, useEffect} from 'react'
 import PreviewBox from './previewBox';
-import {
-  Text,
-  MeshTransmissionMaterial,
-  MeshDistortMaterial,
-  Html,
-  Stats,
-  OrbitControls
-} from '@react-three/drei'
 import BounceLoader from "react-spinners/BounceLoader";
+import Tooltip from '@mui/material/Tooltip';
 
 export default function MultiList(props:any){
   const [background,setBackground] = useState({toggle:false,index:-1})
@@ -66,6 +58,7 @@ export default function MultiList(props:any){
                   setBackground({toggle:false,index:index})
                   props.hoverAnimation(false)
               }}>
+              <Tooltip title="Click Me!">
               <Link href={e.url} onClick={()=>loadingAnimation(true,index)}>
                 {
                    isLoading.toggle && isLoading.index == index?
@@ -82,6 +75,7 @@ export default function MultiList(props:any){
                   </Canvas>
                 }
                   </Link>
+                  </Tooltip>
                   <ImageListItemBar
                     title={e.text}
                     position={"bottom"}

@@ -1,30 +1,8 @@
-import { useState, useRef, useEffect, useMemo, Suspense , lazy} from 'react'
-import { Canvas, useThree, useFrame, MeshProps, useLoader } from '@react-three/fiber'
-import {
-  Text,
-  MeshTransmissionMaterial,
-  MeshDistortMaterial,
-  Html,
-  Circle,
-  OrbitControls,
-  useGLTF,
-  Environment,
-  Center
-} from '@react-three/drei'
+import { useState, useRef, useEffect, useMemo , lazy} from 'react'
+import { Canvas, useThree, useFrame } from '@react-three/fiber'
 import MultiList from '../shared/multilist'
-import * as THREE from 'three';
-import { SpotLight } from 'three';
-import earth from './logo.png'
-import { TextureLoader } from 'three/src/loaders/TextureLoader'
 import PreviewSphere from '@/shared/previewSphere';
-import PreviewBox from '@/shared/previewBox';
-import PreviewCone from '@/shared/previewCone';
-import PreviewCylinder from '@/shared/previewCylinder';
-import PreviewTorus from '@/shared/previewTorus';
-import { Stats } from '@react-three/drei'
 import { Vector3, Quaternion } from 'three'
-import TextMesh from '../shared/previewText'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import Curve from '@/shared/curve';
 const ModelComponent = lazy(() => import("@/shared/model"));
 

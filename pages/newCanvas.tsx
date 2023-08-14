@@ -1,77 +1,26 @@
 import { useState, useRef, useEffect, useMemo, Suspense, useLayoutEffect, useCallback, ReactElement } from 'react'
-import { animated } from '@react-spring/three'
+import { animated,useSpring,config } from '@react-spring/three'
 import { Canvas, useThree, useFrame, MeshProps, context} from '@react-three/fiber'
-import {
-  Text,
-  MeshTransmissionMaterial,
-  MeshDistortMaterial,
-  Html,
-  Stats,
-  OrbitControls
-} from '@react-three/drei'
-import Box from '@mui/material/Box'
-import { IconButton, Typography } from '@mui/material'
-import Stack from '@mui/material/Stack'
-import {
-  BoxGeometry,
-  BufferGeometry,
-  Mesh,
-  DoubleSide,
-  Vector3,
-  Scene,
-  PerspectiveCamera,
-  WebGLRenderer,
-  MeshStandardMaterial,
-  AmbientLight,
-  DirectionalLight,
-  PointLight,
-  BackSide,
-} from 'three'
-import { useDrag } from 'react-use-gesture'
-import { Physics } from '@react-three/cannon'
-import { faEllipsisV, height } from '@fortawesome/free-solid-svg-icons/faEllipsisV'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import NavigationIcon from '@mui/icons-material/Navigation'
-import Fab from '@mui/material/Fab'
-import { text } from 'stream/consumers'
+import {MeshDistortMaterial,Html,} from '@react-three/drei'
+import { Tooltip } from '@mui/material'
+import {Vector3} from 'three'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
-import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass'
-import List from '@mui/material/List';
-import ListItem from '@mui/material'
-import MenuList from '@mui/material/MenuList';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemIcon from '@mui/material/ListItemIcon';
-import ListItemText from '@mui/material/ListItemText';
-import ExpandLess from '@mui/icons-material/ExpandLess';
-import ExpandMore from '@mui/icons-material/ExpandMore';
-import Collapse from '@mui/material/Collapse';
-import TextMesh from '../shared/previewText'
-import PreviewCone from '@/shared/previewCone'
-import PreviewBox from '@/shared/previewBox'
 import Draggable from "react-draggable";
 import ClearIcon from '@mui/icons-material/Clear';
-import * as THREE from 'three';
-import ColorPallet from '@/shared/colorpallet';
-import TextBox from '@/shared/textbox';
-import Font from '@/shared/font'
 import Geometries from '@/shared/geometries'
 import CommonMenu from '@/shared/commonMenu'
 import LeftPane from '@/shared/leftpane'
 import DetailsIcon from '@mui/icons-material/Details';
-import { Transform } from 'stream'
 import { setInterval } from 'timers'
 import Preview from '@/shared/preview'
-import { ScreenCapture } from 'react-screen-capture';
-import Image from 'next/image'
-import html2canvas from "html2canvas";
 import Button from '@mui/material/Button';
-import StartIcon from '@mui/icons-material/Start';
-import StopIcon from '@mui/icons-material/Stop';
-import { SpriteText2D, textAlign, MeshText2D} from 'three-text2d'
-//import PreviewText from '../shared/previewText'
-import { fontStyle } from 'html2canvas/dist/types/css/property-descriptors/font-style'
 const AnimatedMeshDistortMaterial:any = animated(MeshDistortMaterial)
+import Transition from '@/shared/transition'
+import Action from '@/shared/Action'
+import { openDB } from 'idb';
+import { IndexedDB } from '../services/indexeddb'
+import SaveIcon from '@mui/icons-material/Save';
 
 export default function NewCanvas(props:any) {
   const editContent = useRef<any>(null);
@@ -96,6 +45,9 @@ export default function NewCanvas(props:any) {
   const [wireframe,isWireFrame] = useState(false)
   const [autoRotate,isAutoRotate] = useState(false)
   const canvas = useMemo(()=> [{color:'white'}],[])
+  var actions =  useMemo(() => new Array(),[])
+  var properties =  useMemo(() => new Array(),[])
+
   /*const color = useControls({
     value: 'lightblue',
   })*/
@@ -105,21 +57,28 @@ export default function NewCanvas(props:any) {
     isEditableDiv(true)
   }
 
-  const setColor = (color:string, index:number, element:any, name:string) =>{
+  useEffect(()=>{
+    IndexedDB().createDB()
+  })
+  const setColor = (color:string, index:number, element:any, name:string, action:string) =>{
     setNewColor(color)
-    switch(name){
-      case 'text':
-        return  (setTextArray(textArray.map((t,i)=>{
-          if(i == index){
-            return {...t, color:color}
-          } else{
-            return t
-          }
-        })))
-      case 'element':
-        return element[index].color = color
-      default:
-        return canvas[0].color = color
+    if(action == 'default'){
+      switch(name){
+        case 'text':
+          return  (setTextArray(textArray.map((t,i)=>{
+            if(i == index){
+              return {...t, color:color}
+            } else{
+              return t
+            }
+          })))
+        case 'element':
+          return element[index].color = color
+        default:
+          return canvas[0].color = color
+      }
+    }  else{
+      setActions(name=='text'?textArray:element,index,action,'color',color)
     }
   }
 
@@ -145,13 +104,16 @@ export default function NewCanvas(props:any) {
       }}))
   }
 
-  const setWireFrame = (element:any,index:number) =>{
-    isWireFrame(!element[index].wireframe)
-    element[index].wireframe = !element[index].wireframe
-
+  const setWireFrame = (element:any,index:number,action:string) =>{
+    isWireFrame(!wireframe)
+    if(action == 'default'){
+      element[index].wireframe = !wireframe
+    } else{
+      setActions(element,index,action,'wireframe',!wireframe)
+  }
   }
 
-  const [interval,addInterval] = useState()
+  const [interval,addInterval] = useState(null as NodeJS.Timeout | null)
 
   const setAutoRotate = (element:any,index:number) =>{
     isAutoRotate(!element[index].autoRotate)
@@ -175,19 +137,23 @@ export default function NewCanvas(props:any) {
     })
   }
 
-  const setElementSize = (size:number, name:number, element:any,index:number) =>{
+  const setElementSize = (size:number, name:number, element:any,index:number,action:string) =>{
     if([0,1,2].includes(name)){
       let args = []
       name == 0? args.push(size,element[index].args[1],element[index].args[2]): name == 1 ? args.push(element[index].args[0],size,element[index].args[2]) : args.push(element[index].args[0],element[index].args[1],size)
-      element[index].args = args
-      setSize({args:args, index:index, isResize: true, sizeTool:'slider' })
+      if(action =='default'){
+        setSize({args:args, index:index, isResize: true, sizeTool:'slider' })
+        element[index].args = args
+      } else{
+        setActions(element,index,action,'args',args)
+      }
     } else{
       let rotaionArgs = []
-      console.log(name)
       element[index].intersections.rotation[name] = size
       name == 3? rotaionArgs.push(size,element[index].intersections.rotation[1],element[index].intersections.rotation[2]): 
       name == 4 ? rotaionArgs.push(element[index].intersections.rotation[0],size,element[index].intersections.rotation[2]) : 
       rotaionArgs.push(element[index].intersections.rotation[0],element[index].intersections.rotation[1],size)
+      if(action =='default'){
       setRotation({
         x: rotaionArgs[0],
         y: rotaionArgs[1],
@@ -196,7 +162,9 @@ export default function NewCanvas(props:any) {
         isRotateZ: false,
         index: index,
         rotationTool:'slider'
-      })
+      })} else{
+        setActions(element,index,action,'rotation',rotaionArgs)
+      }
     }
     
   }
@@ -222,7 +190,7 @@ export default function NewCanvas(props:any) {
     </mesh>)
   }
   
-  const MainMesh = (props:any) =>{
+  function MainMesh(props:any){
     const {e,i} = props
     const ref = useRef<any>()
     useFrame((_, delta) => {
@@ -338,6 +306,7 @@ export default function NewCanvas(props:any) {
       id: id,
       wireframe:false,
       autoRotate:false,
+      record:false,
       intersections: {
         isintersect: false,
         intersectionName: '',
@@ -491,7 +460,7 @@ export default function NewCanvas(props:any) {
     isdragging(false)
   }
 
-  const findIndex = (event: any, elementIndex: number) => {
+  function findIndex(event: any, elementIndex: number){
     let x = event.x
     let y = event.y
     event.intersections.filter((i: any, index: any) => {
@@ -775,20 +744,15 @@ export default function NewCanvas(props:any) {
           autoFocus
           onMouseOver={(e)=>{
             editContent.current.focus()
-        }}
-          onKeyDown={(e:any)=>{
-          if(e.ctrlKey && e.code == 'KeyS'){
-            let translate = e.target.offsetParent.attributes.style.value.split('translate')
-            let position = translate && translate.length > 1 ?e.target.offsetParent.attributes.style.value.split('translate')[1].match(/\d+/g):[0,0]
-            isEditableDiv(false)
-            e.target.innerText != '' && setTextArray([...textArray, {text:e.target.innerText, opacity:1, left:position[0], top:position[1], color:'black',fontFamily:'serif',fontSize:'15px'}])
-            divRef.current.remove()
-          } 
         }}>
-         <button contentEditable={false} style = {{position:'relative',float:'right', marginTop: '0px', width: '30px', height:'20px'}} onClick = {(e)=>{
-          divRef.current.remove()
+          <button contentEditable={false} style = {{position:'relative',float:'right', marginTop: '0px', width: '30px', height:'20px'}} onClick = {(e)=>{          
+          divRef.current.innerText != '' && setTextArray([...textArray, {id:Date.now(),name:'text',text:divRef.current.innerText, opacity:1, left:0, top:0, color:'black',fontFamily:'serif',fontSize:'15px'}])          
           isEditableDiv(false)
-        }}><ClearIcon fontSize="inherit"/></button>
+          divRef.current.remove()
+        }}><SaveIcon fontSize="inherit"/></button>
+         <button contentEditable={false} style = {{position:'relative',float:'left', marginTop: '0px', width: '30px', height:'20px'}} 
+         onClick={()=>{isEditableDiv(false)
+         divRef.current.remove()}}><ClearIcon fontSize="inherit"/></button>
         <div contentEditable ref= { editContent} 
           className='editText'
           style={{marginTop:'20px', marginBottom:'-50px', height:'80px', color:'black', fontFamily:'serif', fontSize:'15px'}}></div>
@@ -829,14 +793,14 @@ export default function NewCanvas(props:any) {
     {
        t.text.split('\n').map((pt:any,j:number)=> 
         <PreviewText scale={new Vector3(1,0.5,1)}  position={new Vector3(t.left == 0? 2: 2 + t.left/80 ,t.top == 0? -1.5 + j/3: -1.5 - t.top/80 + j/3,1)} key ={'previewtext'+i +'subtext'+j} 
-        fontSize={parseInt(t.fontSize)} color= {t.color} fontFamily ={t.fontFamily} opacity={editText ? 0 : 1}>
+        fontSize={parseInt(t.fontSize)} color= {t.color} fontFamily ={t.fontFamily} opacity={editText ? 0 : 1} >
         {pt}
         </PreviewText>
       )
     }
-    <Html key ={'text'+i}>
+    <Html key ={t.name+t.id}>
       <Draggable>
-        <div id ={'text'+i} style={{left:t.left, top:t.top ,minWidth:'100px', opacity:editText ? 1 : 0}}
+        <div id ={t.name+t.id} style={{left:t.left, top:t.top ,minWidth:'100px', opacity:editText ? 1 : 0}}
           onPointerOver ={(e)=>{
           setEditText(true)
           setTextArray(textArray.map((t:any,index:number)=> {
@@ -849,7 +813,8 @@ export default function NewCanvas(props:any) {
             setSelected({name:'text', index:i, elements:textArray})
             setTextArray(textArray.map((t:any,index:number)=> {
               if (index == i) {
-                let result = (e.target.attributes.style.value.split('translate')[1]?e.target.attributes.style.value.split('translate')[1].match(/-?\d+/g):e.target.offsetParent.attributes.style.value.split('translate')[1].match(/-?\d+/g)).map((n:any) => parseInt(n));
+                let divID:any = document.getElementById(t.name+t.id)
+                let result = (divID.style.cssText.split('translate')[1].match(/-?\d+/g)).map((n:any) => parseInt(n));
                 return {...t,left:result[0],top:result[1]}
               } else {
                 return t;
@@ -876,6 +841,24 @@ export default function NewCanvas(props:any) {
                 setSelected({name:'text', index:i, elements:textArray})
               }}>
                 <DetailsIcon fontSize="inherit"/></button>
+                <button contentEditable={false}  style = {{position:'relative',float:'left', marginTop: '0px',opacity:t.opacity, height:'27px'}}
+                onClick = {(e)=>{ 
+                  let divID:any = document.getElementById('text'+i)
+                  if(divID.innerText== ''){
+                    setTextArray(textArray.filter((t:any, index:number)=> index != i))
+                  }
+                  else{
+                    setTextArray(textArray.map((t:any,index:number)=> {
+                      if (index == i ) {
+                        return {...t,text:divID.innerText}
+                      } else {
+                        return t;
+                      }
+                    }))
+                  }
+                setSelected({name:'canvas', index:-1, elements:null})
+              }}>
+                <SaveIcon fontSize="inherit"/></button>
               </div>
               <p contentEditable suppressContentEditableWarning={true} style={{position:'relative', width:'max-content',
               whiteSpace:'pre-wrap', lineHeight:'20px', color:t.color, fontFamily:t.fontFamily, fontSize:t.fontSize}}
@@ -902,9 +885,14 @@ export default function NewCanvas(props:any) {
             </>
           ));
   }
-  
+  const[sequence,showSequence] = useState(false)
+  const setSequence = (isSequence:boolean)=>{
+    showSequence(isSequence)
+  }
+  const [record,setRecord] = useState(new Array())
+ 
   const ScreenshotButton = () =>{
-    const { gl, scene, camera } = useThree()     
+    const { gl, scene, camera } = useThree()  
       function ScreenShot(){
       setEditText(false)
       setTimeout(()=>{
@@ -920,7 +908,7 @@ export default function NewCanvas(props:any) {
             //a.download = 'canvas.jpg'
             ///a.click()
             image.addEventListener("mouseenter", function () {
-              image.style.transform = 'scale(3)'
+              image.style.transform = 'scale(2)'
           });
           image.addEventListener("mouseleave", function () {
             image.style.transform = 'scale(1)'
@@ -931,16 +919,80 @@ export default function NewCanvas(props:any) {
         )
       },500)
      }
+     function Record(){
+      setRecord(elements.map((e,i)=>{return i}))
+      let stream =canvasRef.current.captureStream() 
+      const video:any = document.querySelector('video');
+      const rec = new MediaRecorder(stream, { mimeType: 'video/webm' })
+      const imgDiv:any = document.getElementById('imgdiv');
+      imgDiv.style.opacity = 1
+      rec.start()
+      rec.addEventListener('dataavailable', e => {
+        let url = URL.createObjectURL(e.data)
+        video.src = url
+      })
+
+      for (let count = 0; count < record.length; count++) {
+        setTimeout(() => {
+          setRecord(record.filter((r,index)=>index !== 0))
+      },count*500)
+      }
+      
+      setTimeout(()=>{
+          rec.stop()
+        },elements.length*2000)
+      }
       gl.domElement.toDataURL()
       return (
         <Html> 
           <div style={{position:'fixed',marginTop:2*canvasRef.current.clientHeight/5+'px', marginLeft:2*canvasRef.current.clientWidth/5+'px'}}>
-          <Button variant="contained" onClick={ScreenShot} color="inherit">Save</Button>
+          <Tooltip title={'Save Slide'}>
+          <Button variant="contained" onClick={()=>{IndexedDB().addToDB('actions',actions).then(sequence?Record:ScreenShot)
+            }} color="inherit">Save</Button>
+          </Tooltip>
           </div>
         </Html>
       );
+}
+const [active,setActive] = useState(false)
+const { scale, transition } = useSpring({
+  transition:0.1,
+  scale: active ? 1.5 : 1,
+  config: config.wobbly
+});
+
+const showText = (element:any,index:number,action:string,text:string) =>{
+  setActions(element,index,action,'text',text)
+}
+
+const hideText =(element:any,index:number,action:string) =>{
+  setActions(element,index,action,'text','')
+}
+
+const setActions = async(selectedElement:any,index:number,actionType:string,propertyName:string,property:any)=>{
+  let actionMap = new Map()
+  let action = actions.filter((a:any,i:number)=>
+    a.has(selectedElement != null ?selectedElement[index].name+selectedElement[index].id:'canvas'))
+  if(action && action.length > 0){
+    const items = action[0].values()[Symbol.iterator]();
+    for (const item of items) {
+      if(item.has(actionType)){
+        let propMap = item.get(actionType)
+        propMap.set(propertyName,property)
+      }
+    }
+  } else {
+    let newActionMap = new Map()
+    newActionMap.set('createElement',selectedElement!= null?selectedElement.filter((e:any,i:number)=>i==index)[0]:canvas[0])
+    let propMap = new Map()
+    propMap.set(propertyName,property)
+    newActionMap.set(actionType,propMap)
+    actionMap.set(selectedElement!= null?selectedElement[index].name+selectedElement[index].id:'canvas',newActionMap)
   }
-  
+  actionMap.size>0 && actions.push(actionMap)
+  actions && actions.length > 0 && IndexedDB().addToDB('actions',actions)
+}
+
   return (
     <div style={{ height: props.height }}>
       <div
@@ -969,7 +1021,7 @@ export default function NewCanvas(props:any) {
                   marginLeft:'20px',
                   marginTop:'-20px'
                 }}>
-                  <CommonMenu geometry={geometry} index={i} cloneElement={cloneElement} setColor={setColor}/>
+                  <CommonMenu geometry={geometry} index={i} cloneElement={cloneElement}/>
                   </div>
                   </Html>
                   <StaticMesh element={element} i = {i}/>
@@ -986,19 +1038,18 @@ export default function NewCanvas(props:any) {
           height: '500px',
           float: 'left',
           overflow: 'auto',
-          margin:'1%',
-          marginTop:'2%',
         }}>
       <LeftPane selected={selected} setColor={setColor} EditableText={EditableText} setEditableDiv={setEditableDiv} setFontSize={setFontSize} setFont={setFont} setWireFrame={setWireFrame}
-      setElementSize={setElementSize} setAutoRotate = {setAutoRotate}/>
+      setElementSize={setElementSize} setAutoRotate = {setAutoRotate} showText={showText} hideText={hideText}/>
       </div>
         <Canvas
           ref={canvasRef}
+          id={'canvas'}
           style={{
             width: '75%',
             height: '500px',
             float:'left',
-            marginTop:'1%',
+            margin:'1%',
           }}
           onContextMenu={(e)=>{
             e.nativeEvent.preventDefault()
@@ -1014,147 +1065,154 @@ export default function NewCanvas(props:any) {
       {elements &&
       elements.length > 0 &&
       elements.map((e, i) => {
-      if (e.name != '') {
-      return (
-      <mesh key ={i}
-      position={e.intersections.position}
-      rotation={
-        i == rotation.index
-          ? [rotation.x, rotation.y, rotation.z]
-          : e.intersections.rotation
-        }
-
-      onContextMenu={(e) => {
-        e.nativeEvent.preventDefault()
-        handleContextMenu(e, i)
-      }}
-      onPointerMove={(event) => {
-        document.body.style.cursor = 'crosshair'
-        if (
-          dragging &&
-          (!rotation.isRotate || !rotation.isRotateZ) &&
-          rotation.index != i &&
-          !resize.isResize &&
-          resize.index != i
-        ) {
-          findIndex(event, i)
-        } else {
-          if (
-            (rotation.isRotate || rotation.isRotateZ) &&
-            rotation.index == i && rotation.rotationTool =='cursor'
-          ) {
-            setElementRotation(event, i)
-          }
-          if (resize.isResize && resize.index == i && resize.sizeTool == 'cursor') {
-            setElemetArgs(event, i)
-          }
-        }
-        setLastPosition([event.point.x, event.point.y])
-      }}
-      onPointerDown={(event) => {
-        if (
-          join == true &&
-          e.name + e.id == elements[i].name + elements[i].id &&
-          intersectingIndex[intersectingIndex.length - 1] != i
-        ) {
-          intersectingIndex.push(i)
-          mergeElements(e)
-        }
-        if (event.eventObject.name == '') {
-          event.eventObject.name = e.name + e.id
-        }
-        if (event.intersections[0].eventObject.name != '') {
-          setDraggedElement(event.eventObject.name)
-          setLastPosition([event.point.x, event.point.y])
-          isdragging(true)
-        }
-      }}
-      onPointerUp={(event) => {
-        if (i == rotation.index) {
-          e.intersections.rotation = [
-            rotation.x,
-            rotation.y,
-            rotation.z
-          ]
-        }
-        if (i == resize.index) {
-          e.args = resize.args
-        }
-        setRotation({
-          x: rotation.x,
-          y: rotation.y,
-          z: rotation.x,
-          isRotate: false,
-          isRotateZ: false,
-          index: -1,
-          rotationTool:'cursor'
-        })
-        setSize({ args: [], index: -1, isResize: false , sizeTool:'cursor' })
-        if (dragging) {
-          //findIndex(event)
-          let x = event.point.x
-          let y = event.point.y
-          if (event.eventObject.name == draggedElement) {
-            e.intersections.position.x =
-              event.eventObject.position.x
-            e.intersections.position.y =
-              event.eventObject.position.y
-          }
-          event.eventObject.name = e.name + e.id
-          event.eventObject.userData = e.intersections
-          e.intersections.boundaries = getBoundaries(
-            event,
-            i,
-            false
-          )
-          event.eventObject.userData.boundaries =
-            e.intersections.boundaries
-          if (elements && elements.length >= 2) {
-            elements.filter((ele, index) => {
-              if (ele.name + ele.id == event.eventObject.name) {
-                intersectingIndex.push(index)
-              }
+        //if(e.name != ''){
+        return(<animated.mesh key ={i}
+          onClick={() => {
+          setActive(true)}}
+          position={e.intersections.position}
+          rotation={
+            i == rotation.index
+              ? [rotation.x, rotation.y, rotation.z]
+              : e.intersections.rotation
+            }
+    
+          onContextMenu={(e) => {
+            e.nativeEvent.preventDefault()
+            handleContextMenu(e, i)
+          }}
+          onPointerMove={(event) => {
+            document.body.style.cursor = 'crosshair'
+            if (
+              dragging &&
+              (!rotation.isRotate || !rotation.isRotateZ) &&
+              rotation.index != i &&
+              !resize.isResize &&
+              resize.index != i
+            ) {
+              findIndex(event, i)
+            } else {
               if (
-                event.eventObject.userData.isintersect ==true &&
-                ele.name + ele.id != event.eventObject.name &&
-                ele.intersections.isintersect == true &&
-                ele.intersections.intersectionName ==
-                event.eventObject.userData.intersectionName
+                (rotation.isRotate || rotation.isRotateZ) &&
+                rotation.index == i && rotation.rotationTool =='cursor'
               ) {
-                let diffY = Math.abs(
-                  y - ele.intersections.position.x
-                )
-                let diffX = Math.abs(
-                  x - ele.intersections.position.x
-                )
-                ele.intersections.position.y =
-                  y > ele.intersections.position.y
-                    ? event.point.y + diffY
-                    : event.point.y - diffY
-                ele.intersections.position.x =
-                  x > ele.intersections.position.x
-                    ? event.point.x + diffX
-                    : event.point.x - diffX
+                setElementRotation(event, i)
               }
-        })
+              if (resize.isResize && resize.index == i && resize.sizeTool == 'cursor') {
+                setElemetArgs(event, i)
+              }
+            }
+            setLastPosition([event.point.x, event.point.y])
+          }}
+          onPointerDown={(event) => {
+            setSelected({name:'element', index:i, elements:elements})
+            if (
+              join == true &&
+              e.name + e.id == elements[i].name + elements[i].id &&
+              intersectingIndex[intersectingIndex.length - 1] != i
+            ) {
+              intersectingIndex.push(i)
+              mergeElements(e)
+            }
+            if (event.eventObject.name == '') {
+              event.eventObject.name = e.name + e.id
+            }
+            if (event.intersections[0].eventObject.name != '') {
+              setDraggedElement(event.eventObject.name)
+              setLastPosition([event.point.x, event.point.y])
+              isdragging(true)
+            }
+          }}
+          onPointerUp={(event) => {
+            setSelected({name:'element', index:i, elements:elements})
+            if (i == rotation.index) {
+              e.intersections.rotation = [
+                rotation.x,
+                rotation.y,
+                rotation.z
+              ]
+            }
+            if (i == resize.index) {
+              e.args = resize.args
+            }
+            setRotation({
+              x: rotation.x,
+              y: rotation.y,
+              z: rotation.x,
+              isRotate: false,
+              isRotateZ: false,
+              index: -1,
+              rotationTool:'cursor'
+            })
+            setSize({ args: [], index: -1, isResize: false , sizeTool:'cursor' })
+            if (dragging) {
+              findIndex(event,i)
+              let x = event.point.x
+              let y = event.point.y
+              if (event.eventObject.name == draggedElement) {
+                e.intersections.position.x =
+                  event.eventObject.position.x
+                e.intersections.position.y =
+                  event.eventObject.position.y
+              }
+              event.eventObject.name = e.name + e.id
+              event.eventObject.userData = e.intersections
+              e.intersections.boundaries = getBoundaries(
+                event,
+                i,
+                false
+              )
+              event.eventObject.userData.boundaries =
+                e.intersections.boundaries
+              if (elements && elements.length >= 2) {
+                elements.filter((ele, index) => {
+                  if (ele.name + ele.id == event.eventObject.name) {
+                    intersectingIndex.push(index)
+                  }
+                  if (
+                    event.eventObject.userData.isintersect ==true &&
+                    ele.name + ele.id != event.eventObject.name &&
+                    ele.intersections.isintersect == true &&
+                    ele.intersections.intersectionName ==
+                    event.eventObject.userData.intersectionName
+                  ) {
+                    let diffY = Math.abs(
+                      y - ele.intersections.position.x
+                    )
+                    let diffX = Math.abs(
+                      x - ele.intersections.position.x
+                    )
+                    ele.intersections.position.y =
+                      y > ele.intersections.position.y
+                        ? event.point.y + diffY
+                        : event.point.y - diffY
+                    ele.intersections.position.x =
+                      x > ele.intersections.position.x
+                        ? event.point.x + diffX
+                        : event.point.x - diffX
+                  }
+            })
+              }
+            }
+            setIntersectingIndex([-1])
+            isdragging(false)
+          }}>
+          <e.name args={i == resize.index ? resize.args : e.args}/>    
+          <meshStandardMaterial
+          color={e.color}
+          wireframe={e.wireframe}
+          visible={record && record.length>0 && record.includes(i)?false:true}
+          />
+          {
+            sequence && (
+              <Html><input type="number" min={1} max ={elements.length} onChange={(e)=>{
+                elements[i].sequence = parseInt(e.target.value)}}></input></Html>
+            )
           }
-        }
-        setIntersectingIndex([-1])
-        isdragging(false)
-      }}>
-      <e.name args={i == resize.index ? resize.args : e.args}/>    
-      <meshStandardMaterial
-      color={e.color}
-      wireframe={e.wireframe}
-      />
-      <Html>
-      </Html>
-      {
+          {
+          }
+        </animated.mesh>)//}
+      })
       }
-    </mesh>
-    )}
-    })
-    }
     <color attach="background" args={[canvas[0].color]} />
   </Canvas>
         <div
@@ -1162,10 +1220,21 @@ export default function NewCanvas(props:any) {
           width: '10%',
           height: '500px',
           overflow: 'auto',
-          margin:'1%',
-          float:'left',
+         
         }}>
-        <Preview  canvas={canvas} elements={elements} canvasRef ={canvasRef} textArray={textArray} recStarted={setPreviewText}/>
+        <Preview  canvas={canvas} elements={elements} canvasRef ={canvasRef} textArray={textArray} recStarted={setPreviewText} sequence={sequence}/>
+      </div>
+      <div>
+      <div style={{backgroundColor:'yellow', width: '80%',
+          height: '50px',
+          display: 'flex',
+          overflowX: 'auto',marginLeft:'11%', marginRight:'5%', marginTop:'2%'}}>
+      </div>
+      <div style={{backgroundColor:'yellow', width: '80%',
+          height: '50px',
+          display: 'flex',
+          overflowX: 'auto',marginLeft:'11%', marginRight:'5%'}}>
+      </div>
       </div>
         <Menu 
         open={ textMenu !== null }
@@ -1197,22 +1266,6 @@ export default function NewCanvas(props:any) {
             }
           }}
           >
-          <MenuItem onClick={()=>{setSelected({name:'element', index:contextMenu?contextMenu.index:0, elements:elements})
-            handleClose()}}>Edit</MenuItem>
-          <MenuItem
-            onClick={(e) =>
-              detachElement(e, contextMenu?.index, contextMenu?.contextEvent)
-            }>
-            Detach
-          </MenuItem>
-          <MenuItem
-            onClick={(e) => {
-              showJoin(true)
-              contextMenu && setIntersectingIndex([...intersectingIndex,contextMenu.index])
-              handleClose()
-            }}>
-            Attach
-          </MenuItem>
           <MenuItem
             onClick={() => {
               setRotation({...rotation,
@@ -1259,6 +1312,20 @@ export default function NewCanvas(props:any) {
               handleClose()
             }}>
             Delete
+          </MenuItem>
+          <MenuItem
+            onClick={(e) =>
+              detachElement(e, contextMenu?.index, contextMenu?.contextEvent)
+            }>
+            Detach
+          </MenuItem>
+          <MenuItem
+            onClick={(e) => {
+              showJoin(true)
+              contextMenu && setIntersectingIndex([...intersectingIndex,contextMenu.index])
+              handleClose()
+            }}>
+            Attach
           </MenuItem>
         </Menu>
       </div>

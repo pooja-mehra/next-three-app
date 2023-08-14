@@ -1,6 +1,5 @@
 import React from 'react'
 import { useGLTF } from '@react-three/drei'
-import { Stats, OrbitControls, Circle } from '@react-three/drei'
 
 export default function Model() {
   const model = useGLTF("models/monkey.glb")

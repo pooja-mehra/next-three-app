@@ -1,11 +1,6 @@
 import Draggable from "react-draggable";
 import ClearIcon from '@mui/icons-material/Clear';
-import {
-    Text,
-    MeshTransmissionMaterial,
-    MeshDistortMaterial,
-    Html
-  } from '@react-three/drei'
+import {Html} from '@react-three/drei'
 
 export default function TextBox(props:any){
   const {textArray} = props

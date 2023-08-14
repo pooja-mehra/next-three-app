@@ -1,15 +1,11 @@
 import * as React from 'react';
-import Button from '@mui/material/Button';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { IconButton } from '@mui/material';
 import { faEllipsisV } from '@fortawesome/free-solid-svg-icons/faEllipsisV'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import {
-    Vector3
-} from 'three'
-import ColorPallet from './colorpallet';
-import { useEffect, useState, useRef,RefObject } from 'react';
+import { useState } from 'react';
+import Tooltip from '@mui/material/Tooltip';
 
 export default function CommonMenu(props:any) {
   const {geometry,index} = props
@@ -23,7 +19,7 @@ export default function CommonMenu(props:any) {
   };
   const cloneElement = (e: any) => {
     let args = Object.values(geometry[index].type.parameters)
-    props.cloneElement(args,geometry[index].color,geometry[index].id,geometry[index].name)
+    props.cloneElement(args,geometry[index].color,geometry[index].id,geometry[index].name,e)
 }
 const [newcolor,setNewColor] = useState('')
 
@@ -34,6 +30,7 @@ const setColor = (color:string, index:number, elements:any) =>{
 
   return (
     <div>
+      <Tooltip title="menu">
       <IconButton
         id="basic-button"
         aria-controls={open ? 'basic-menu' : undefined}
@@ -43,6 +40,7 @@ const setColor = (color:string, index:number, elements:any) =>{
       >
         <FontAwesomeIcon icon={faEllipsisV} />
       </IconButton>
+      </Tooltip>
       <Menu
         id="basic-menu"
         anchorEl={anchorEl}
@@ -60,4 +58,4 @@ const setColor = (color:string, index:number, elements:any) =>{
     </div>
   );
 }
-//        <MenuItem><ColorPallet elements={geometry} index ={index} setColor={props.setColor}/></MenuItem>
+//<MenuItem><ColorPallet elements={geometry} index ={index} setColor={props.setColor}/></MenuItem>
