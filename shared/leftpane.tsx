@@ -14,7 +14,9 @@ import TextField from '@mui/material/TextField';
 
 export default function LeftPane(props:any){
     const[wireframe,setWireframe] = useState(false)
+    const[actionSequence,setActionSequence] = useState(false)
     const[isText,setText] = useState(false)
+    const [textValue,setTextValue] = useState('')
     const Boop = ({
         x = 0,
         y = 0,
@@ -74,6 +76,8 @@ export default function LeftPane(props:any){
   const [action, setAction] = useState('default');
 
   const handleChange = (event: SelectChangeEvent) => {
+    setActionSequence(false)
+    setText(false)
     setAction(event.target.value as string);
     //selected && props.setActions(selected.elements,selected.index,event.target.value)
   };
@@ -120,22 +124,10 @@ export default function LeftPane(props:any){
                   <Stack spacing={5} style={{ margin: '10%' }}>
                     <ActionSelect />
                   </Stack>
-                  {
-                      action != 'default' &&
-                      <Stack spacing={5} style={{ margin: '15%' }}>
-                      <Checkbox checked={isText} onChange={()=>{
-                        setText(!isText)
-                        props.hideText(selected.elements,selected.index,action)}}/>ShowText
-                      </Stack>
-                    }
-                  {
-                     isText && action != 'default' &&
-                     <Stack spacing={5} style={{ margin: '15%' }}>
-                        <TextField id="outlined-basic" label="Outlined" variant="outlined" onKeyDown={(e:any)=>{
-                          props.showText(selected.elements,selected.index,action,e.target.value)
-                          }}/>
-                     </Stack>
-                  }
+                  <Stack spacing={5} style={{ margin: '10%' }}>
+                      <Checkbox checked={actionSequence} onChange={()=>{setActionSequence(!actionSequence)
+                            props.setActionSequence(selected.elements,selected.index,action,!actionSequence)}}/>Sequence
+                  </Stack>
                 <Stack spacing={5} style={{ margin: '10%'}}>
                     <ColorPallet elements={selected.elements} index ={selected.index} name={selected.name} action={action} setColor={props.setColor}/>
                 </Stack>
@@ -156,7 +148,7 @@ export default function LeftPane(props:any){
                         <ColorPallet elements={selected.elements} index ={selected.index} name={selected.name} action={action} setColor={props.setColor} />
                     </Stack>
                     <Stack spacing={5} style={{ margin: '20%' }}>
-                    <Font index={selected.index} elements={selected.elements} setFont={props.setFont} setFontSize ={props.setFontSize}/>
+                    <Font index={selected.index} elements={selected.elements} setFont={props.setFont} action={action} setFontSize ={props.setFontSize}/>
                     </Stack>
                     </div>)
         default:
@@ -178,3 +170,17 @@ export default function LeftPane(props:any){
                     <Checkbox checked={selected.elements[selected.index].autoRotate} onChange={()=>{
                         props.setAutoRotate(selected.elements,selected.index,true)}}/>AutoRotate
                 </Stack>*/
+    /*
+    {
+                      action != 'default' &&
+                      <Stack spacing={5} style={{ margin: '15%' }}>
+                      <Checkbox checked={isText} onChange={()=>{
+                        setText(!isText)
+                        props.hideText(selected.elements,selected.index,action)}}/>ShowText
+                      </Stack>
+                    }
+                     <Stack spacing={5} style={{ margin: '15%' }}>
+                        <TextField id="outlined-basic" label="Outlined" variant="outlined" onKeyDown={(e:any)=>{
+                          props.showText(selected.elements,selected.index,action,e.target.value)
+                          }}/>
+                     </Stack>*/

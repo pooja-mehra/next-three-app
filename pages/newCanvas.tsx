@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, useMemo, Suspense, useLayoutEffect, useCallback, ReactElement } from 'react'
+import { useState, useRef, useEffect, useMemo} from 'react'
 import { animated,useSpring,config } from '@react-spring/three'
-import { Canvas, useThree, useFrame, MeshProps, context} from '@react-three/fiber'
-import {MeshDistortMaterial,Html,} from '@react-three/drei'
+import { Canvas, useThree, useFrame} from '@react-three/fiber'
+import {MeshDistortMaterial,Html,Text} from '@react-three/drei'
 import { Tooltip } from '@mui/material'
 import {Vector3} from 'three'
 import Menu from '@mui/material/Menu'
@@ -21,6 +21,7 @@ import Action from '@/shared/Action'
 import { openDB } from 'idb';
 import { IndexedDB } from '../services/indexeddb'
 import SaveIcon from '@mui/icons-material/Save';
+import Published from '@/pages/published';
 
 export default function NewCanvas(props:any) {
   const editContent = useRef<any>(null);
@@ -43,10 +44,13 @@ export default function NewCanvas(props:any) {
   const [font, setFontStyle] = useState({style:'serif', size:'15px', index:-1})
   const [selected,setSelected] = useState<any>()
   const [wireframe,isWireFrame] = useState(false)
+  const [elementText,setElementText] =useState('')
+  const [actionSequence,isActionSequence] = useState(false)
   const [autoRotate,isAutoRotate] = useState(false)
   const canvas = useMemo(()=> [{color:'white'}],[])
   var actions =  useMemo(() => new Array(),[])
   var properties =  useMemo(() => new Array(),[])
+  const [reload, setReload] = useState(0);
 
   /*const color = useControls({
     value: 'lightblue',
@@ -62,7 +66,7 @@ export default function NewCanvas(props:any) {
   })
   const setColor = (color:string, index:number, element:any, name:string, action:string) =>{
     setNewColor(color)
-    if(action == 'default'){
+    if(action == 'default' && !actionSequence){
       switch(name){
         case 'text':
           return  (setTextArray(textArray.map((t,i)=>{
@@ -82,37 +86,49 @@ export default function NewCanvas(props:any) {
     }
   }
 
-  const setFont = (fontFamily:string, index:number, elements:any) =>{
+  const setFont = (fontFamily:string, index:number, elements:any,action:string) =>{
     //textArray[index].fontFamily = fontFamily
     //setFontStyle({...font,style:fontFamily, index:index})
+    if(action == 'default'){
     setTextArray(textArray.map((t:any,i:number)=> {
       if (index == i) {
         return {...t,fontFamily:fontFamily}
       } else {
         return t;
       }}))
+    } else{
+      setActions(textArray,index,action,'fontFamily',fontFamily)
+    }
   }
 
-  const setFontSize = (size:string, index:number, elements:any) =>{
+  const setFontSize = (size:string, index:number, elements:any,action:string) =>{
     //setFontStyle({...font,size:size, index:index})
     //textArray[index].fontSize = size
+    if(action == 'default'){
     setTextArray(textArray.map((t:any,i:number)=> {
       if (index == i) {
         return {...t,fontSize:size}
       } else {
         return t;
       }}))
+    } else{
+      setActions(textArray,index,action,'fontSize',size)
+    }
   }
 
   const setWireFrame = (element:any,index:number,action:string) =>{
     isWireFrame(!wireframe)
-    if(action == 'default'){
+    if(action == 'default'  && !actionSequence){
       element[index].wireframe = !wireframe
     } else{
       setActions(element,index,action,'wireframe',!wireframe)
+    }
   }
+  
+  const setActionSequence = (element:any,index:number,action:string,isSequence:boolean) =>{
+      isActionSequence(isSequence)
+      setActions(element,index,action,'sequence',isSequence)
   }
-
   const [interval,addInterval] = useState(null as NodeJS.Timeout | null)
 
   const setAutoRotate = (element:any,index:number) =>{
@@ -141,7 +157,7 @@ export default function NewCanvas(props:any) {
     if([0,1,2].includes(name)){
       let args = []
       name == 0? args.push(size,element[index].args[1],element[index].args[2]): name == 1 ? args.push(element[index].args[0],size,element[index].args[2]) : args.push(element[index].args[0],element[index].args[1],size)
-      if(action =='default'){
+      if(action =='default' && !actionSequence){
         setSize({args:args, index:index, isResize: true, sizeTool:'slider' })
         element[index].args = args
       } else{
@@ -153,7 +169,7 @@ export default function NewCanvas(props:any) {
       name == 3? rotaionArgs.push(size,element[index].intersections.rotation[1],element[index].intersections.rotation[2]): 
       name == 4 ? rotaionArgs.push(element[index].intersections.rotation[0],size,element[index].intersections.rotation[2]) : 
       rotaionArgs.push(element[index].intersections.rotation[0],element[index].intersections.rotation[1],size)
-      if(action =='default'){
+      if(action =='default' && !actionSequence){
       setRotation({
         x: rotaionArgs[0],
         y: rotaionArgs[1],
@@ -962,7 +978,12 @@ const { scale, transition } = useSpring({
 });
 
 const showText = (element:any,index:number,action:string,text:string) =>{
-  setActions(element,index,action,'text',text)
+  setElementText(text)
+  if(action == 'default' && !actionSequence){
+    element[index].text = text
+  } else{
+    setActions(element,index,action,'text',text)
+  }
 }
 
 const hideText =(element:any,index:number,action:string) =>{
@@ -977,8 +998,13 @@ const setActions = async(selectedElement:any,index:number,actionType:string,prop
     const items = action[0].values()[Symbol.iterator]();
     for (const item of items) {
       if(item.has(actionType)){
+        [...item.get(actionType).keys()].includes(propertyName) && item.get(actionType).delete(propertyName)
         let propMap = item.get(actionType)
         propMap.set(propertyName,property)
+      } else{
+        let propMap = new Map()
+        propMap.set(propertyName,property)
+        item.set(actionType,propMap)
       }
     }
   } else {
@@ -991,8 +1017,9 @@ const setActions = async(selectedElement:any,index:number,actionType:string,prop
   }
   actionMap.size>0 && actions.push(actionMap)
   actions && actions.length > 0 && IndexedDB().addToDB('actions',actions)
+  setReload(reload+1)
 }
-
+  const publishRef = useRef<any>(null)
   return (
     <div style={{ height: props.height }}>
       <div
@@ -1040,7 +1067,7 @@ const setActions = async(selectedElement:any,index:number,actionType:string,prop
           overflow: 'auto',
         }}>
       <LeftPane selected={selected} setColor={setColor} EditableText={EditableText} setEditableDiv={setEditableDiv} setFontSize={setFontSize} setFont={setFont} setWireFrame={setWireFrame}
-      setElementSize={setElementSize} setAutoRotate = {setAutoRotate} showText={showText} hideText={hideText}/>
+      setElementSize={setElementSize} setAutoRotate = {setAutoRotate} showText={showText} hideText={hideText} setActionSequence={setActionSequence}/>
       </div>
         <Canvas
           ref={canvasRef}
@@ -1208,8 +1235,11 @@ const setActions = async(selectedElement:any,index:number,actionType:string,prop
                 elements[i].sequence = parseInt(e.target.value)}}></input></Html>
             )
           }
-          {
-          }
+         {
+          e.text && e.text != '' && <Text position={[-e.args[0],e.args[0],e.args[0]+1]} 
+          fontSize={e.args[0]/2} color={'green'}
+          anchorX="center" anchorY="middle">{e.text}</Text>
+         } 
         </animated.mesh>)//}
       })
       }
@@ -1222,19 +1252,13 @@ const setActions = async(selectedElement:any,index:number,actionType:string,prop
           overflow: 'auto',
          
         }}>
-        <Preview  canvas={canvas} elements={elements} canvasRef ={canvasRef} textArray={textArray} recStarted={setPreviewText} sequence={sequence}/>
+         <Preview  canvas={canvas} elements={elements} canvasRef ={canvasRef} textArray={textArray} recStarted={setPreviewText} sequence={sequence}/>
       </div>
       <div>
-      <div style={{backgroundColor:'yellow', width: '80%',
-          height: '50px',
-          display: 'flex',
-          overflowX: 'auto',marginLeft:'11%', marginRight:'5%', marginTop:'2%'}}>
+      <div>
+      { reload != 0 && <Published reload = {reload} height={'200px'}/> }
       </div>
-      <div style={{backgroundColor:'yellow', width: '80%',
-          height: '50px',
-          display: 'flex',
-          overflowX: 'auto',marginLeft:'11%', marginRight:'5%'}}>
-      </div>
+     
       </div>
         <Menu 
         open={ textMenu !== null }

@@ -2,7 +2,7 @@ import AddIcon from '@mui/icons-material/Add';
 import IconButton from '@mui/material/IconButton';
 import { useState } from 'react';
 import Tooltip from '@mui/material/Tooltip';
-
+import Published from '@/pages/published';
 export default function Preview(props:any){
     const {canvas, elements, canvasRef, textArray,sequence} = props
     const [test,setTest] = useState<any>(null)

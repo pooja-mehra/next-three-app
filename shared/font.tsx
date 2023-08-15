@@ -1,19 +1,19 @@
 import { useState } from 'react'
 
 export default function Font(props:any) {
-    const {elements, index } = props
+    const {elements, index, action } = props
     const [font, setFont] = useState(elements[index].fontFamily);
     const [fontSize, setFontSize] = useState(parseInt(elements[index].fontSize));
     const fontArray = ['serif','sans-serif','monospace','cursive','fantasy']
     const [changed,isChanged] = useState(false)
     const changeFont = (event: any) => {
     setFont(event.target.value);
-    props.setFont(event.target.value,index, elements)
+    props.setFont(event.target.value,index, elements,action)
     };
 
     const changeSize = (event: any) => {
         setFontSize(event.target.value);
-        props.setFontSize(event.target.value+'px',index, elements)
+        props.setFontSize(event.target.value+'px',index, elements,action)
     };
 
     return (
