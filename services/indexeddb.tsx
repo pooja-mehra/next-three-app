@@ -25,5 +25,19 @@ import { openDB } from 'idb';
         const db1 = await openDB('animatenext', 1);
         db1.put('store1', value, key);
         db1.close();
+    },
+
+    async  removeFromDB(key:string){
+        const db1 = await openDB('animatenext', 1);
+        db1.delete('store1',key)
+        db1.close();
+
+    },
+    async  clearDB(){
+        const db1 = await openDB('animatenext', 1);
+        db1.clear('store1')
+        db1.close();
+
     }}
+    
 }

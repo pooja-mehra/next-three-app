@@ -22,6 +22,7 @@ import { openDB } from 'idb';
 import { IndexedDB } from '../services/indexeddb'
 import SaveIcon from '@mui/icons-material/Save';
 import Published from '@/pages/published';
+import RefreshIcon from '@mui/icons-material/Refresh';
 
 export default function NewCanvas(props:any) {
   const editContent = useRef<any>(null);
@@ -29,7 +30,7 @@ export default function NewCanvas(props:any) {
   const canvasRef = useRef<any>(null);
   const [editableDiv, isEditableDiv] = useState(false)
   const [textArray, setTextArray] = useState(new Array())
-  //const [elements, addElement] = useState(new Array())
+  const [elements, setElement] = useState(new Array())
   const [clicked, isClicked] = useState(false)
   const [dragging, isdragging] = useState(false)
   const [join, showJoin] = useState(false)
@@ -39,15 +40,15 @@ export default function NewCanvas(props:any) {
   const [draggedElement, setDraggedElement] = useState('element')
   const [intersectingIndex, setIntersectingIndex] = useState([-1])
   const [open, setOpen] = useState(true);
-  const elements = useMemo(() => new Array(),[])
+  //const elements = useMemo(() => new Array(),[])
   const [newcolor,setNewColor] = useState('#ff6d6d')
   const [font, setFontStyle] = useState({style:'serif', size:'15px', index:-1})
   const [selected,setSelected] = useState<any>()
   const [wireframe,isWireFrame] = useState(false)
   const [elementText,setElementText] =useState('')
-  const [actionSequence,isActionSequence] = useState(false)
+  const [actionSequence,isActionSequence] = useState({element:null,index:-1,action:'default',isSequence:false})
   const [autoRotate,isAutoRotate] = useState(false)
-  const canvas = useMemo(()=> [{color:'white'}],[])
+  const canvas = useMemo(()=> [{color:''}],[])
   var actions =  useMemo(() => new Array(),[])
   var properties =  useMemo(() => new Array(),[])
   const [reload, setReload] = useState(0);
@@ -63,70 +64,89 @@ export default function NewCanvas(props:any) {
 
   useEffect(()=>{
     IndexedDB().createDB()
-  })
+    if(elements.length > 0){
+      elements.forEach((e,i)=>{
+        setActions(elements,i)
+      })
+    }
+    if(textArray.length > 0){
+      textArray.forEach((e,i)=>{
+        setActions(textArray,i)
+      })
+    }
+    
+  },[elements,textArray])
+
   const setColor = (color:string, index:number, element:any, name:string, action:string) =>{
     setNewColor(color)
-    if(action == 'default' && !actionSequence){
+    if(action == 'default' && !actionSequence.isSequence){
       switch(name){
         case 'text':
-          return  (setTextArray(textArray.map((t,i)=>{
+          (setTextArray(textArray.map((t,i)=>{
             if(i == index){
               return {...t, color:color}
             } else{
               return t
             }
           })))
+          break
         case 'element':
-          return element[index].color = color
+          element[index].color = color
+          break
+        case 'canvas':
+          canvas[0].color = color
+            break
         default:
-          return canvas[0].color = color
+          canvas[0].color = color
       }
-    }  else{
-      setActions(name=='text'?textArray:element,index,action,'color',color)
     }
+    setActions(element,index,action,'color',color)
   }
 
   const setFont = (fontFamily:string, index:number, elements:any,action:string) =>{
     //textArray[index].fontFamily = fontFamily
     //setFontStyle({...font,style:fontFamily, index:index})
-    if(action == 'default'){
+    if(action == 'default' && !actionSequence.isSequence){
     setTextArray(textArray.map((t:any,i:number)=> {
       if (index == i) {
         return {...t,fontFamily:fontFamily}
       } else {
         return t;
       }}))
-    } else{
-      setActions(textArray,index,action,'fontFamily',fontFamily)
     }
+    setActions(elements,index,action,'fontFamily',fontFamily)
   }
 
   const setFontSize = (size:string, index:number, elements:any,action:string) =>{
     //setFontStyle({...font,size:size, index:index})
     //textArray[index].fontSize = size
-    if(action == 'default'){
+    if(action == 'default' && !actionSequence.isSequence){
     setTextArray(textArray.map((t:any,i:number)=> {
       if (index == i) {
         return {...t,fontSize:size}
       } else {
         return t;
       }}))
-    } else{
-      setActions(textArray,index,action,'fontSize',size)
     }
+    setActions(elements,index,action,'fontSize',size)
   }
 
   const setWireFrame = (element:any,index:number,action:string) =>{
     isWireFrame(!wireframe)
-    if(action == 'default'  && !actionSequence){
+    if(action == 'default'  && !actionSequence.isSequence){
       element[index].wireframe = !wireframe
-    } else{
-      setActions(element,index,action,'wireframe',!wireframe)
+      setElement(elements.map((t:any,i:number)=> {
+        if (index == i) {
+          return {...t,wireframe:!wireframe}
+        } else {
+          return t;
+        }}))
     }
+    setActions(element,index,action,'wireframe',!wireframe)
   }
   
   const setActionSequence = (element:any,index:number,action:string,isSequence:boolean) =>{
-      isActionSequence(isSequence)
+      isActionSequence({element:element,index:index,action:action,isSequence:isSequence})
       setActions(element,index,action,'sequence',isSequence)
   }
   const [interval,addInterval] = useState(null as NodeJS.Timeout | null)
@@ -157,19 +177,18 @@ export default function NewCanvas(props:any) {
     if([0,1,2].includes(name)){
       let args = []
       name == 0? args.push(size,element[index].args[1],element[index].args[2]): name == 1 ? args.push(element[index].args[0],size,element[index].args[2]) : args.push(element[index].args[0],element[index].args[1],size)
-      if(action =='default' && !actionSequence){
+      if(action =='default' && !actionSequence.isSequence){
         setSize({args:args, index:index, isResize: true, sizeTool:'slider' })
         element[index].args = args
-      } else{
-        setActions(element,index,action,'args',args)
       }
+        setActions(element,index,action,'args',args)
     } else{
       let rotaionArgs = []
       element[index].intersections.rotation[name] = size
       name == 3? rotaionArgs.push(size,element[index].intersections.rotation[1],element[index].intersections.rotation[2]): 
       name == 4 ? rotaionArgs.push(element[index].intersections.rotation[0],size,element[index].intersections.rotation[2]) : 
       rotaionArgs.push(element[index].intersections.rotation[0],element[index].intersections.rotation[1],size)
-      if(action =='default' && !actionSequence){
+      if(action =='default' && !actionSequence.isSequence){
       setRotation({
         x: rotaionArgs[0],
         y: rotaionArgs[1],
@@ -178,9 +197,8 @@ export default function NewCanvas(props:any) {
         isRotateZ: false,
         index: index,
         rotationTool:'slider'
-      })} else{
+      })}
         setActions(element,index,action,'rotation',rotaionArgs)
-      }
     }
     
   }
@@ -315,7 +333,7 @@ export default function NewCanvas(props:any) {
 
   const cloneElement = (args:any, color:string, id:number, name:string) => {
     isClicked(!clicked)
-    elements.push({
+    setElement([...elements,{
       name: name,
       args: args,
       color:color,
@@ -332,7 +350,7 @@ export default function NewCanvas(props:any) {
         position: new Vector3(0, 3, 0),
         rotation: [0.5, 0.5, 0]
       }
-    })
+    }])
     /*e.eventObject.userData = {
       isintersect: false,
       intersectionName: '',
@@ -813,6 +831,7 @@ export default function NewCanvas(props:any) {
         {pt}
         </PreviewText>
       )
+      
     }
     <Html key ={t.name+t.id}>
       <Draggable>
@@ -836,6 +855,8 @@ export default function NewCanvas(props:any) {
                 return t;
               }
             }))
+            setActions(textArray,i,'default','left',textArray[i].left)
+            setActions(textArray,i,'default','top',textArray[i].top)
            }}
               onPointerOut ={(e)=>{setTextArray(textArray.map((t:any,index:number)=> {
                 setEditText(false)
@@ -850,6 +871,7 @@ export default function NewCanvas(props:any) {
               onClick = {(e)=>{ 
                 setTextArray(textArray.filter((t:any, index:number)=> index != i))
                 setSelected({name:'canvas', index:-1, elements:null})
+                setActions(textArray,i,'default','remove')
               }}>
                 <ClearIcon fontSize="inherit"/></button>
                 <button contentEditable={false}  style = {{position:'relative',marginTop: '0px',opacity:t.opacity, height:'27px'}}
@@ -979,44 +1001,52 @@ const { scale, transition } = useSpring({
 
 const showText = (element:any,index:number,action:string,text:string) =>{
   setElementText(text)
-  if(action == 'default' && !actionSequence){
+  if(action == 'default' && !actionSequence.isSequence){
     element[index].text = text
-  } else{
-    setActions(element,index,action,'text',text)
   }
+    setActions(element,index,action,'text',text)
 }
 
 const hideText =(element:any,index:number,action:string) =>{
   setActions(element,index,action,'text','')
 }
 
-const setActions = async(selectedElement:any,index:number,actionType:string,propertyName:string,property:any)=>{
+const setActions = async(selectedElement:any,index:number,actionType?:string,propertyName?:string,property?:any)=>{
   let actionMap = new Map()
   let action = actions.filter((a:any,i:number)=>
     a.has(selectedElement != null ?selectedElement[index].name+selectedElement[index].id:'canvas'))
   if(action && action.length > 0){
-    const items = action[0].values()[Symbol.iterator]();
-    for (const item of items) {
-      if(item.has(actionType)){
+    if(propertyName == 'remove'){
+      actions.length == 1 ? IndexedDB().clearDB():IndexedDB().removeFromDB(selectedElement[index].name+selectedElement[index].id)
+      actions.splice(actions.indexOf(action[0]),1)
+    } else{
+      const items = action[0].values()[Symbol.iterator]();
+      for (const item of items) {
+      if(actionType != 'undefined' && item.has(actionType)){
         [...item.get(actionType).keys()].includes(propertyName) && item.get(actionType).delete(propertyName)
         let propMap = item.get(actionType)
         propMap.set(propertyName,property)
       } else{
         let propMap = new Map()
         propMap.set(propertyName,property)
-        item.set(actionType,propMap)
+        actionType != undefined && item.set(actionType,propMap)
       }
+    }
     }
   } else {
     let newActionMap = new Map()
     newActionMap.set('createElement',selectedElement!= null?selectedElement.filter((e:any,i:number)=>i==index)[0]:canvas[0])
+    if(propertyName){
     let propMap = new Map()
     propMap.set(propertyName,property)
-    newActionMap.set(actionType,propMap)
+    actionType != undefined && newActionMap.set(actionType,propMap)
+    }
     actionMap.set(selectedElement!= null?selectedElement[index].name+selectedElement[index].id:'canvas',newActionMap)
   }
-  actionMap.size>0 && actions.push(actionMap)
-  actions && actions.length > 0 && IndexedDB().addToDB('actions',actions)
+  actionMap.size > 0 && actions.push(actionMap)
+  if(actions && actions.length > 0 ){
+    IndexedDB().addToDB('actions',actions)
+  }
   setReload(reload+1)
 }
   const publishRef = useRef<any>(null)
@@ -1157,9 +1187,11 @@ const setActions = async(selectedElement:any,index:number,actionType:string,prop
                 rotation.y,
                 rotation.z
               ]
+              setActions(elements,i,'default','rotation',e.intersections.rotation)
             }
             if (i == resize.index) {
               e.args = resize.args
+              setActions(elements,i,'default','args',e.args)
             }
             setRotation({
               x: rotation.x,
@@ -1219,6 +1251,7 @@ const setActions = async(selectedElement:any,index:number,actionType:string,prop
                   }
             })
               }
+              setActions(elements,i,actionSequence.action,'position',e.intersections.position)
             }
             setIntersectingIndex([-1])
             isdragging(false)
@@ -1243,7 +1276,7 @@ const setActions = async(selectedElement:any,index:number,actionType:string,prop
         </animated.mesh>)//}
       })
       }
-    <color attach="background" args={[canvas[0].color]} />
+    <color attach="background" args={[canvas[0].color != ''?canvas[0].color:'white']} />
   </Canvas>
         <div
         style={{
@@ -1254,13 +1287,11 @@ const setActions = async(selectedElement:any,index:number,actionType:string,prop
         }}>
          <Preview  canvas={canvas} elements={elements} canvasRef ={canvasRef} textArray={textArray} recStarted={setPreviewText} sequence={sequence}/>
       </div>
+      
       <div>
-      <div>
-      { reload != 0 && <Published reload = {reload} height={'200px'}/> }
+      { <Tooltip title={'Click to open'} placement="bottom"><a href={'http://localhost:3000/published'}><Published reload = {reload} actions={actions} height={'200px'}/></a></Tooltip> }
       </div>
-     
-      </div>
-        <Menu 
+      <Menu 
         open={ textMenu !== null }
         onClose={handleClose}
           anchorReference="anchorPosition"
@@ -1330,8 +1361,10 @@ const setActions = async(selectedElement:any,index:number,actionType:string,prop
           </MenuItem>
           <MenuItem
             onClick={() => {
-              contextMenu &&
+              contextMenu &&(
+              setActions(elements,contextMenu.index,'default','remove'),
               elements.splice(contextMenu.index,1)
+              )
               setSelected({name:'canvas', index:-1, elements:null})
               handleClose()
             }}>

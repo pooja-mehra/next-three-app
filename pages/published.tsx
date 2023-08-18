@@ -25,66 +25,115 @@ export default function Published(props:any) {
       height: 0.1,
       zIndex:1
    };
-   async function getData(){
+
+  async function getData(){
     setActions(await IndexedDB().getFromDB('actions'))
   }
-  useEffect( ()=>{
+
+  useEffect(()=>{
+    setReload(props.reload +1)
     IndexedDB().createDB()
     getData()
-    setReload(props.reload +1)
-  },[props.reload])
+    let newCanvas = props.actions &&  props.actions.length > 0? props.actions.filter((item:any,index:number)=>item.has('canvas')):
+    actions.filter((item:any,index:number)=>item.has('canvas'))
+    if(newCanvas && newCanvas.length > 0){
+      setCanvas(newCanvas[0].get('canvas'))
+    }
+    let newText = props.actions &&  props.actions.length > 0? props.actions.filter((item:any,index:number)=>!item.has('canvas')):
+    actions.filter((item:any,index:number)=>!item.has('canvas'))
+    if(newText && newText.length > 0){
+    const items = newText[0][Symbol.iterator]();
+    if(items){
+    for (const item of items) {
+      if(item[1].has('default')){
+        if(!item[1].get('default').has('sequence') || (item[1].get('default').has('sequence') && item[1].get('default').get('sequence') == false)){
+          for (const [key, value] of item[1].get('default')){
+            if(item[1].get('createElement').hasOwnProperty(key)){
+              item[1].get('createElement')[key] = item[1].get('default').get(key)
+              //isHoverd(false)
+            }
+          }
+        }
+      }
+    }
+  }
+}
+  },[props.reload,props.actions])
 
-  const setSequenceProperties = (item:any,action:string) =>{
+  const setSequenceProperties = (item:any,action:string,index:number) =>{
     let keys = [...item[1].get(action).keys()];
-            if(keys.includes('sequence')){
-              let defaultAttrMap = new Map()
-            let i = 1
-            let interval = setInterval(()=>{
+    if(keys.includes('sequence') && item[1].get(action).get('sequence') == true //&& (action != 'default' || (action == 'default' && properties.id != item[0]))
+    ){
+        let defaultAttrMap = new Map()
+        let i = 0
+          let interval = setInterval(()=>{
+            if(keys[i] != 'sequence'){
               defaultAttrMap.set(keys[i],item[1].get(action).get(keys[i]))
               setproperties({id:item[0],attr:defaultAttrMap})
-              if(i == item[1].get(action).size-1){
-                clearInterval(interval)
-                isInteracting(true)
+              action != 'default' && isInteracting(true)
+              if(action == 'default' && item[1].get('createElement').hasOwnProperty(keys[i])){
+                item[1].get('createElement')[keys[i]] = item[1].get('default').get(keys[i])
               }
-              i++
-            },1000)
-            } else{
-              setproperties({id:item[0],attr:item[1].get(action)})
             }
-            isInteracting(true)
+            if(i == item[1].get(action).size){
+              clearInterval(interval)
+              isInteracting(true)
+              isUpdated(true)
+              setproperties({id:'',attr:{}})
+            }
+            i++
+            },(index+1+i)*(i==0?200:600))
+        
+        } else{
+          setproperties({id:item[0],attr:item[1].get(action)})
+          if(action == 'default'){
+            for(let i in keys){
+              if(item[1].get('createElement').hasOwnProperty(keys[i])){
+                item[1].get('createElement')[keys[i]] = item[1].get('default').get(keys[i])
+              }
+            }
+          }
+          isInteracting(true)
+          isUpdated(true)
+        }
   }
+  
+  const[hoverd,isHoverd] = useState(false)
    const PublishedMesh = (props:any) =>{
-    const {item,geometry,element} = props 
+    const {item,geometry,element,index} = props 
     return( <mesh ref={geomRef}
         name={item[0]}
-        rotation={interact && properties.id == item[0] && properties.attr.get('rotation')?properties.attr.get('rotation'):element.intersections.rotation}
+        rotation={properties.id == item[0] && properties.attr.has('rotation')? properties.attr.get('rotation'): element.intersections.rotation}
         position={[element.intersections.position.x,element.intersections.position.y,element.intersections.position.z]}
         geometry={geometry} 
         onUpdate={()=>{
-          if(item[1].has('default') && !interact && !updated) {
-            if(properties.id != item[0] || (properties.id == item[0] && properties.attr.size <= item[1].get('default').size -1)){
-              setSequenceProperties(item,'default')
-              isUpdated(true)
+          if(item[1].has('default') && !updated ) {
+            if(properties.id != item[0] ||(properties.id == item[0] && properties.attr.size <= item[1].get('default').size -1 )){
+              setSequenceProperties(item,'default',index)
             }
-        }}}
-        onPointerOver={()=>{
+          }
+          //isHoverd(false)
+      }}
+        onPointerOver={(e)=>{
           if(item[1].has('hover')){
-            setSequenceProperties(item,'hover')
-        }}}
+            isHoverd(true)
+            setSequenceProperties(item,'hover',index)
+          }}}
+          
         onClick ={()=>{
           if(item[1].has('click')){
-            setSequenceProperties(item,'click')
-            }}}
-        onPointerOut ={()=>{
-          isInteracting(false)
-        }}>
+            setSequenceProperties(item,'click',index)
+        }}}
+       onPointerMove ={(e)=>{
+        if(item[1].has('hover')){
+          //isHoverd(true)
+          }}}>
         <meshStandardMaterial
-        color={interact && properties.id == item[0] && properties.attr.get('color')? properties.attr.get('color'):element.color}
-        wireframe={interact && properties.id == item[0] && properties.attr.get('wireframe') ?properties.attr.get('wireframe'):element.wireframe}
+        color={properties.id == item[0] && properties.attr.has('color')? properties.attr.get('color'):element.color}
+        wireframe={properties.id == item[0] && properties.attr.has('wireframe')?properties.attr.get('wireframe'):element.wireframe}
         />
-        
         {
-          interact && properties.id == item[0] && properties.attr.get('text')?
+           properties.id == item[0] && properties.attr.get('text')?
           (<Text anchorX="center" anchorY="middle"
           color="black" position={[properties.attr.get('args') ? -properties.attr.get('args')[0] :-element.args[0],properties.attr.get('args') ? properties.attr.get('args')[0] :element.args[0],properties.attr.get('args') ? properties.attr.get('args')[0] :element.args[0]+1]} 
           fontSize={properties.attr.get('args') ? properties.attr.get('args')[0]/2 :element.args[0]/2}>{item[0] && properties.attr.get('text')} 
@@ -96,16 +145,20 @@ export default function Published(props:any) {
     }
 
   return (
-      <div>
-        <Canvas ref ={ref} style={{backgroundColor:canvas?interact && properties.id == 'canvas' && properties.attr.get('color') ? properties.attr.get('color') :canvas.get('createElement').color:'white',height:props.height?props.height:'800px'}}
+      <div style={{height:props.height?'20vh':'100vh'}}>
+        <Canvas ref ={ref} style={{backgroundColor:canvas?interact && properties.id == 'canvas' && properties.attr.has('color') ? properties.attr.get('color') :canvas.get('createElement').color:'white'}}
         camera={{ position: [0,0,6] }}
-        onCreated={()=>{
-          let newCanvas = actions.filter((item:any,index:number)=>item.has('canvas'))
+        
+        onCreated ={()=>{
+          let newCanvas =  actions.filter((item:any,index:number)=>item.has('canvas'))
           if(newCanvas && newCanvas.length > 0){
             setCanvas(newCanvas[0].get('canvas'))
-          }
-        }}
-        onPointerOver={()=>{
+          }}}
+        onPointerMove={(e)=>{
+          if(properties.id != 'canvas' && hoverd == true && (Math.abs(e.movementX) != 0 || Math.abs(e.movementY) != 0)){
+            setproperties({id:'',attr:{}})
+          }}}
+        onPointerOver={(e)=>{
           if(canvas && !interact){
             if(canvas.has('hover')){
               setproperties({id:'canvas',attr:canvas.get('hover')})
@@ -123,6 +176,7 @@ export default function Published(props:any) {
         }}
         onPointerOut ={()=>{
            isInteracting(false)
+           isHoverd(false)
         }}>
         <directionalLight position={[3.3, 1.0, 4.4]}  />
         {actions && actions.length>0 && actions.map((action:any,index:number)=>{
@@ -131,38 +185,52 @@ export default function Published(props:any) {
                 if(item[1].has('createElement')){
                     let element = item[1].get('createElement')
                     if(element.name == 'text'){
+                      if(item[1].has('default') && !updated){
+                        setSequenceProperties(item,'default',index)
+                      }
                       return(<Html>
-                        <div style={{marginLeft:element.left+'px', marginTop:element.top+'px', 
-                        color:interact && properties.id == item[0] && properties.attr.get('color') ? properties.attr.get('color'):element.color,
-                        fontFamily:interact && properties.id == item[0] && properties.attr.get('fontFamily') ? properties.attr.get('fontFamily'):element.fontFamily,
-                        fontSize:interact && properties.id == item[0] && properties.attr.get('fontSize') ? properties.attr.get('fontSize'):element.fontSize}} 
+                        <div style={{marginLeft:properties.id == item[0] && properties.attr.has('left')? properties.attr.get('left')+'px':element.left+'px', marginTop:properties.id == item[0] && properties.attr.has('top')? props.height?properties.attr.get('top')[0]/4+'px':properties.attr.get('top')[0]+'px':props.height?element.top/4+'px':element.top+'px', 
+                        color: properties.id == item[0] && properties.attr.has('color')?  properties.attr.get('color'): element.color ,
+                        fontFamily:properties.id == item[0] && properties.attr.has('fontFamily') ? properties.attr.get('fontFamily'):element.fontFamily,
+                        fontSize: properties.id == item[0] && properties.attr.has('fontSize') ? properties.attr.get('fontSize'):element.fontSize,
+                        }} 
                         onClick={(e)=>{
                           if(item[1].has('click')){
-                            setproperties({id:item[0],attr:item[1].get('click')})
-                            isInteracting(true)
-                          
+                            setSequenceProperties(item,'click',index)
+                            //setproperties({id:item[0],attr:item[1].get('click')})
+                            //isInteracting(true)
                           }
                         }}
                         onPointerOver={(e)=>{
                           if(item[1].has('hover')){
-                            setproperties({id:item[0],attr:item[1].get('hover')})
-                            isInteracting(true)
+                            setSequenceProperties(item,'hover',index)
+                            //setproperties({id:item[0],attr:item[1].get('hover')})
+                            //isInteracting(true)
                           }
                         }}
-                        onPointerOut = {(e)=>{isInteracting(false)}}
+                        onPointerOut = {()=>{isInteracting(false)}}
                         >{element.text}</div>
                       </Html>)
                     } 
                     else{
                     let geometry :any
-                    let args = interact && properties.id == item[0] && properties.attr.get('args') ? properties.attr.get('args') :element.args
+                    let args = properties.id == item[0]  && properties.attr.has('args') ? properties.attr.get('args') :element.args
                     switch(element.name){
                         case'SphereGeometry':                          
                           geometry = new THREE.SphereGeometry(...args)
-                          return (<PublishedMesh item={item} geometry={geometry} element={element} key={item[0]}/>)
+                          return (<PublishedMesh item={item} geometry={geometry} element={element} index={index} key={item[0]}/>)
                         case'CylinderGeometry':                            
                           geometry = new THREE.CylinderGeometry(...args)
-                          return (<PublishedMesh item={item} geometry={geometry} element={element} key={item[0]}/>)
+                          return (<PublishedMesh item={item} geometry={geometry} element={element} index={index} key={item[0]}/>)
+                        case'BoxGeometry':                            
+                          geometry = new THREE.BoxGeometry(...args)
+                          return (<PublishedMesh item={item} geometry={geometry} element={element}  index={index} key={item[0]}/>)
+                        case'ConeGeometry':                            
+                          geometry = new THREE.ConeGeometry(...args)
+                          return (<PublishedMesh item={item} geometry={geometry} element={element} index={index} key={item[0]}/>)
+                        case'TorusGeometry':                            
+                          geometry = new THREE.TorusGeometry(...args)
+                          return (<PublishedMesh item={item} geometry={geometry} element={element} index={index} key={item[0]}/>)
                   }
                 }
               }

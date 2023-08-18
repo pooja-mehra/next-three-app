@@ -110,7 +110,7 @@ export default function LeftPane(props:any){
                     <ActionSelect />
                   </Stack>
                 <Stack spacing={5} style={{ margin: '10%' }}>
-                    <ColorPallet elements={null} action={action} index ={-1} setColor={props.setColor} />
+                    <ColorPallet elements={null} name={selected?selected.name:'canvas'} action={action} index ={-1} setColor={props.setColor} />
                 </Stack>
                 <Stack spacing={5} style={{ margin:'10%', marginTop: '20%', }}>
                     <Boop rotation={20} timing={200} scale={1.5}>
@@ -144,6 +144,10 @@ export default function LeftPane(props:any){
                     <Stack spacing={5} style={{ margin: '10%' }}>
                       <ActionSelect />
                     </Stack>
+                    <Stack spacing={5} style={{ margin: '10%' }}>
+                      <Checkbox checked={actionSequence} onChange={()=>{setActionSequence(!actionSequence)
+                            props.setActionSequence(selected.elements,selected.index,action,!actionSequence)}}/>Sequence
+                  </Stack>
                     <Stack spacing={5} style={{ margin: '10%' }}>
                         <ColorPallet elements={selected.elements} index ={selected.index} name={selected.name} action={action} setColor={props.setColor} />
                     </Stack>
